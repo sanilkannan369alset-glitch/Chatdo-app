@@ -104,7 +104,7 @@ function ChatHome({user,selected,setSelected}){
     <aside className="sidebar"><h2>Messages</h2>{people.map(p=>
       <button className={"person "+(selected?.uid===p.uid?"sel":"")} key={p.uid} onClick={()=>setSelected(p)}>
         <Avatar u={p}/><span><b>{p.name||p.email}</b><small>{p.online?"Online":"Offline"}</small></span>
-      </button>})}</aside>
+      </button>)}</aside>
   <section>
   {selected ? <div>CHAT OPENED</div> : <div className="empty">Select someone to start chatting.</div>}
 </section>
