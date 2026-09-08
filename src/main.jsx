@@ -140,7 +140,7 @@ function Chat({user,other}){
       <input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder={file?file.name:"Write a message…"}/>
       <button className="primary" onClick={send}>Send</button>
     </div>
-    {call&&<Call user={user} other={other} type={call} onClose={()=>setCall(null)}/>}
+
   </div>
 }
 
