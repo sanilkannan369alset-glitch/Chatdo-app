@@ -121,9 +121,9 @@ function Chat({user,other}){
     if(!text.trim()&&!file)return;
     let imageURL="";
     if(file){const r=ref(storage,`chatImages/${chatId}/${crypto.randomUUID()}-${file.name}`);await uploadBytes(r,file);imageURL=await getDownloadURL(r)}
-    await addDoc(messagesRef,{senderId:user.uid,text:text.trim(),imageURL,createdAt:serverTimestamp(),likes:[]});
     await setDoc(doc(db,"chats",chatId),{members:[user.uid,other.uid],lastMessage:text.trim()||"📷 Image",updatedAt:serverTimestamp()},{merge:true});
-    setText("");setFile(null);
+    await addDoc(messagesRef,{senderId:user.uid,text:text.trim(),imageURL,createdAt:serverTimestamp(),likes:[]});
+        setText("");setFile(null);
   }
   async function like(id,liked){
     await updateDoc(doc(db,"chats",chatId,"messages",id),{likes:liked?arrayRemove(user.uid):arrayUnion(user.uid)});
