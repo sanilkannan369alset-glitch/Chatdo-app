@@ -530,73 +530,6 @@ function ChatHome({
    CHAT
 ========================= */
 
-function Chat({ user, other }) {
-  const chatId = [user.uid, other.uid]
-    .sort()
-    .join("_");
-
-  const messagesRef = collection(
-    db,
-    "chats",
-    chatId,
-    "messages"
-  );
-
-  const [messages, setMessages] = useState([]);
-  const [text, setText] = useState("");
-  const [file, setFile] = useState(null);
-  const [sending, setSending] = useState(false);
-
-  const bottomRef = useRef(null);
-
-  useEffect(() => {
-    const q = query(
-      messagesRef,
-      orderBy("createdAt", "asc")
-    );
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const list = snapshot.docs.map(
-          (item) => ({
-            id: item.id,
-            ...item.data()
-          })
-        );
-
-        setMessages(list);
-      },
-      (error) => {
-        console.error(
-          "Messages error:",
-          error
-        );
-      }
-    );
-
-    return () => unsubscribe();
-  }, [chatId]);
-
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({
-      behavior: "smooth"
-    });
-  }, [messages]);
-
-
-  async function sendMessage() {
-    const cleanText = text.trim();
-
-    if (!cleanText && !file) {
-      return;
-    }
-
-    setSending(true);
-
-    try {
-      let imageURL = "";
 
       if (file) {
         const fileRef = ref(
@@ -824,6 +757,456 @@ function Chat({ user, other }) {
               )
             }
           />
+function Chat({ user, other }) {
+  const chatId = [user.uid, other.uid]
+    .sort()
+    .join("_");
+
+  const messagesRef = collection(
+    db,
+    "chats",
+    chatId,
+    "messages"
+  );
+
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState("");
+  const [file, setFile] = useState(null);
+  const [sending, setSending] = useState(false);
+
+  const bottomRef = useRef(null);
+
+  /* =========================
+     LOAD MESSAGES
+  ========================= */
+
+  useEffect(() => {
+    const q = query(
+      messagesRef,
+      orderBy("createdAt", "asc")
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      async (snapshot) => {
+        const list = snapshot.docs.map(
+          (item) => ({
+            id: item.id,
+            ...item.data()
+          })
+        );
+
+        setMessages(list);
+
+        /* =========================
+           MARK OTHER PERSON'S
+           MESSAGES AS SEEN
+        ========================= */
+
+        const unreadMessages = snapshot.docs.filter(
+          (item) => {
+            const data = item.data();
+
+            return (
+              data.senderId !== user.uid &&
+              !(data.seenBy || []).includes(user.uid)
+            );
+          }
+        );
+
+        for (const item of unreadMessages) {
+          try {
+            await updateDoc(
+              doc(
+                db,
+                "chats",
+                chatId,
+                "messages",
+                item.id
+              ),
+              {
+                seenBy: arrayUnion(user.uid)
+              }
+            );
+          } catch (error) {
+            console.error(
+              "Seen update error:",
+              error
+            );
+          }
+        }
+      },
+      (error) => {
+        console.error(
+          "Messages error:",
+          error
+        );
+      }
+    );
+
+    return () => unsubscribe();
+  }, [chatId, user.uid]);
+
+
+  /* =========================
+     AUTO SCROLL
+  ========================= */
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({
+      behavior: "smooth"
+    });
+  }, [messages]);
+
+
+  /* =========================
+     SEND MESSAGE
+  ========================= */
+
+  async function sendMessage() {
+    const cleanText = text.trim();
+
+    if (!cleanText && !file) {
+      return;
+    }
+
+    setSending(true);
+
+    try {
+      let imageURL = "";
+
+      /* =========================
+         UPLOAD IMAGE
+      ========================= */
+
+      if (file) {
+        const fileRef = ref(
+          storage,
+          `chatImages/${chatId}/${Date.now()}-${file.name}`
+        );
+
+        await uploadBytes(
+          fileRef,
+          file
+        );
+
+        imageURL =
+          await getDownloadURL(fileRef);
+      }
+
+
+      /* =========================
+         UPDATE CHAT
+      ========================= */
+
+      await setDoc(
+        doc(db, "chats", chatId),
+        {
+          members: [
+            user.uid,
+            other.uid
+          ],
+          lastMessage:
+            cleanText ||
+            "📷 Image",
+          updatedAt:
+            serverTimestamp()
+        },
+        { merge: true }
+      );
+
+
+      /* =========================
+         ADD MESSAGE
+
+         seenBy contains OUR UID
+         because we have obviously
+         seen our own message.
+      ========================= */
+
+      await addDoc(
+        messagesRef,
+        {
+          senderId: user.uid,
+
+          senderName:
+            user.displayName ||
+            user.email,
+
+          text: cleanText,
+
+          imageURL,
+
+          createdAt:
+            serverTimestamp(),
+
+          likes: [],
+
+          seenBy: [user.uid]
+        }
+      );
+
+
+      setText("");
+      setFile(null);
+
+    } catch (error) {
+      console.error(
+        "Send message error:",
+        error
+      );
+
+      alert(
+        "Message send failed. Check Firebase Storage/Firestore settings."
+      );
+    } finally {
+      setSending(false);
+    }
+  }
+
+
+  /* =========================
+     LIKE MESSAGE
+  ========================= */
+
+  async function toggleLike(message) {
+    try {
+      const messageDoc = doc(
+        db,
+        "chats",
+        chatId,
+        "messages",
+        message.id
+      );
+
+      const liked =
+        message.likes?.includes(
+          user.uid
+        );
+
+      await updateDoc(
+        messageDoc,
+        {
+          likes: liked
+            ? arrayRemove(user.uid)
+            : arrayUnion(user.uid)
+        }
+      );
+
+    } catch (error) {
+      console.error(
+        "Like error:",
+        error
+      );
+    }
+  }
+
+
+  /* =========================
+     ENTER TO SEND
+  ========================= */
+
+  function handleKeyDown(event) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey
+    ) {
+      event.preventDefault();
+      sendMessage();
+    }
+  }
+
+
+  return (
+    <div className="chat">
+
+      {/* =========================
+          CHAT HEADER
+      ========================= */}
+
+      <div className="chatHeader">
+
+        <Avatar user={other} />
+
+        <div>
+          <b>
+            {other.name || other.email}
+          </b>
+
+          <small>
+            {other.online
+              ? "Online"
+              : "Offline"}
+          </small>
+        </div>
+
+      </div>
+
+
+      {/* =========================
+          MESSAGES
+      ========================= */}
+
+      <div className="messages">
+
+        {messages.length === 0 && (
+          <div className="noMessages">
+            <p>
+              No messages yet.
+            </p>
+
+            <small>
+              Send the first message.
+            </small>
+          </div>
+        )}
+
+
+        {messages.map((message) => {
+
+          const mine =
+            message.senderId ===
+            user.uid;
+
+          const liked =
+            message.likes?.includes(
+              user.uid
+            );
+
+          /* =========================
+             SEEN STATUS
+
+             Our message:
+             ✓ = sent
+
+             ✓ + eye = seen
+          ========================= */
+
+          const seen =
+            mine &&
+            (message.seenBy || []).includes(
+              other.uid
+            );
+
+
+          return (
+            <div
+              key={message.id}
+              className={
+                "messageRow " +
+                (mine
+                  ? "mine"
+                  : "other")
+              }
+            >
+
+              <div className="messageBubble">
+
+                {/* IMAGE */}
+
+                {message.imageURL && (
+                  <img
+                    src={message.imageURL}
+                    className="chatImage"
+                    alt="sent"
+                  />
+                )}
+
+
+                {/* TEXT */}
+
+                {message.text && (
+                  <div className="messageText">
+                    {message.text}
+                  </div>
+                )}
+
+
+                {/* =========================
+                    MESSAGE BOTTOM
+                ========================= */}
+
+                <div className="messageBottom">
+
+                  {/* LIKE */}
+
+                  <button
+                    className={
+                      "heartButton " +
+                      (liked
+                        ? "liked"
+                        : "")
+                    }
+                    onClick={() =>
+                      toggleLike(message)
+                    }
+                  >
+                    ♥{" "}
+                    {message.likes?.length ||
+                      0}
+                  </button>
+
+
+                  {/* =========================
+                      SENT / SEEN STATUS
+                  ========================= */}
+
+                  {mine && (
+                    <span
+                      className={
+                        "messageStatus " +
+                        (seen
+                          ? "seen"
+                          : "")
+                      }
+                    >
+
+                      <span className="tick">
+                        ✓
+                      </span>
+
+                      {seen && (
+                        <span className="eyeIcon">
+                          <span className="eyePupil" />
+                        </span>
+                      )}
+
+                    </span>
+                  )}
+
+                </div>
+
+              </div>
+
+            </div>
+          );
+        })}
+
+        <div ref={bottomRef} />
+
+      </div>
+
+
+      {/* =========================
+          MESSAGE COMPOSER
+      ========================= */}
+
+      <div className="composer">
+
+        <label className="attachButton">
+
+          📎
+
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(event) =>
+              setFile(
+                event.target.files?.[0] ||
+                null
+              )
+            }
+          />
 
         </label>
 
@@ -857,7 +1240,7 @@ function Chat({ user, other }) {
 
     </div>
   );
-}
+          }
 
 
 /* =========================
