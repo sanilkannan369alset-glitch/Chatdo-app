@@ -64,7 +64,7 @@ const storiesRef = collection(db, "stories");
 
 
 /* =========================================================
-   STYLE
+   STYLES
 ========================================================= */
 
 function WhatsAppStyle() {
@@ -111,47 +111,46 @@ function WhatsAppStyle() {
       }
 
       .wa-topbar {
-        height: 64px;
+        height: 62px;
         flex-shrink: 0;
         background: #075e54;
         color: white;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 18px;
+        padding: 0 16px;
       }
 
       .wa-brand {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 9px;
       }
 
       .wa-brand-title {
         font-size: 22px;
-        font-weight: 700;
+        font-weight: 800;
       }
 
       .wa-brand-user {
         font-size: 12px;
-        opacity: 0.85;
+        opacity: .85;
       }
 
       .wa-logout {
         border: 0;
-        background: rgba(255,255,255,.14);
+        background: rgba(255,255,255,.15);
         color: white;
         border-radius: 20px;
-        padding: 9px 15px;
-        font-size: 14px;
+        padding: 8px 14px;
       }
 
       .wa-tabs {
-        height: 52px;
+        height: 50px;
         flex-shrink: 0;
         background: #075e54;
         display: flex;
-        color: rgba(255,255,255,.75);
+        color: rgba(255,255,255,.7);
       }
 
       .wa-tab {
@@ -159,8 +158,8 @@ function WhatsAppStyle() {
         border: 0;
         background: transparent;
         color: inherit;
-        font-size: 15px;
-        font-weight: 600;
+        font-size: 14px;
+        font-weight: 700;
         border-bottom: 3px solid transparent;
       }
 
@@ -191,7 +190,7 @@ function WhatsAppStyle() {
       .wa-sidebar-title {
         padding: 18px;
         font-size: 21px;
-        font-weight: 700;
+        font-weight: 800;
         border-bottom: 1px solid #eee;
       }
 
@@ -216,16 +215,16 @@ function WhatsAppStyle() {
       }
 
       .wa-avatar {
-        width: 48px;
-        height: 48px;
+        width: 46px;
+        height: 46px;
         border-radius: 50%;
         background: #d9fdd3;
         color: #075e54;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 19px;
-        font-weight: 700;
+        font-size: 18px;
+        font-weight: 800;
         flex-shrink: 0;
       }
 
@@ -233,13 +232,16 @@ function WhatsAppStyle() {
         min-width: 0;
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 3px;
       }
 
       .wa-person-name {
-        font-size: 16px;
-        font-weight: 600;
+        font-size: 15px;
+        font-weight: 700;
         color: #202124;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .wa-online {
@@ -260,25 +262,25 @@ function WhatsAppStyle() {
       }
 
       .wa-chat-header {
-        height: 64px;
+        height: 62px;
         flex-shrink: 0;
         background: #f0f2f5;
         border-bottom: 1px solid #ddd;
         display: flex;
         align-items: center;
-        gap: 11px;
+        gap: 10px;
         padding: 8px 14px;
       }
 
       .wa-chat-header-info {
         display: flex;
         flex-direction: column;
-        gap: 3px;
+        gap: 2px;
         min-width: 0;
       }
 
       .wa-chat-name {
-        font-weight: 700;
+        font-weight: 800;
         font-size: 16px;
         color: #202124;
       }
@@ -292,7 +294,7 @@ function WhatsAppStyle() {
         flex: 1;
         min-height: 0;
         overflow-y: auto;
-        padding: 16px 7%;
+        padding: 15px 6%;
         background-color: #efeae2;
         background-image:
           radial-gradient(
@@ -305,7 +307,7 @@ function WhatsAppStyle() {
       .wa-message-row {
         width: 100%;
         display: flex;
-        margin: 4px 0;
+        margin: 5px 0;
       }
 
       .wa-message-row.mine {
@@ -318,10 +320,10 @@ function WhatsAppStyle() {
 
       .wa-bubble {
         position: relative;
-        max-width: min(75%, 480px);
-        min-width: 55px;
-        padding: 7px 9px 5px;
-        border-radius: 8px;
+        max-width: min(76%, 500px);
+        min-width: 60px;
+        padding: 8px 10px 6px;
+        border-radius: 9px;
         box-shadow: 0 1px 1px rgba(0,0,0,.12);
         word-break: break-word;
       }
@@ -349,9 +351,8 @@ function WhatsAppStyle() {
         align-items: center;
         gap: 3px;
         float: right;
-        margin-left: 9px;
-        margin-top: 7px;
-        transform: translateY(2px);
+        margin-left: 10px;
+        margin-top: 8px;
       }
 
       .wa-time {
@@ -360,11 +361,8 @@ function WhatsAppStyle() {
       }
 
       .wa-ticks {
-        display: inline-flex;
-        align-items: center;
         font-size: 13px;
         font-weight: 700;
-        line-height: 1;
       }
 
       .wa-ticks.sent {
@@ -381,7 +379,7 @@ function WhatsAppStyle() {
         max-width: 300px;
         max-height: 300px;
         object-fit: cover;
-        border-radius: 6px;
+        border-radius: 7px;
         margin-bottom: 4px;
       }
 
@@ -390,12 +388,98 @@ function WhatsAppStyle() {
         border: 0;
         background: transparent;
         color: #777;
-        padding: 2px 0 0;
+        padding: 3px 0 0;
         font-size: 11px;
       }
 
       .wa-heart.liked {
         color: #e53935;
+      }
+
+      .wa-message-menu {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        z-index: 30;
+      }
+
+      .wa-message-menu > button {
+        border: 0;
+        background: rgba(255,255,255,.7);
+        color: #54656f;
+        border-radius: 50%;
+        width: 27px;
+        height: 27px;
+        font-size: 17px;
+        padding: 0;
+      }
+
+      .wa-message-menu-panel {
+        position: absolute;
+        top: 29px;
+        right: 0;
+        width: 185px;
+        background: white;
+        border-radius: 9px;
+        box-shadow: 0 4px 18px rgba(0,0,0,.22);
+        overflow: hidden;
+        z-index: 50;
+      }
+
+      .wa-message-menu-panel button {
+        width: 100%;
+        border: 0;
+        background: white;
+        color: #222;
+        padding: 12px 14px;
+        text-align: left;
+        font-size: 13px;
+      }
+
+      .wa-message-menu-panel button:hover {
+        background: #f1f1f1;
+      }
+
+      .wa-edit-box {
+        display: flex;
+        gap: 5px;
+        margin-top: 5px;
+      }
+
+      .wa-edit-box input {
+        width: 190px;
+        border: 1px solid #aaa;
+        border-radius: 7px;
+        padding: 7px;
+        outline: none;
+      }
+
+      .wa-edit-save {
+        border: 0;
+        background: #128c7e;
+        color: white;
+        border-radius: 7px;
+        padding: 7px 9px;
+      }
+
+      .wa-edit-cancel {
+        border: 0;
+        background: #777;
+        color: white;
+        border-radius: 7px;
+        padding: 7px 9px;
+      }
+
+      .wa-edited {
+        font-size: 10px;
+        color: #667781;
+        margin-left: 5px;
+        font-style: italic;
+      }
+
+      .wa-deleted {
+        color: #667781;
+        font-style: italic;
       }
 
       .wa-typing {
@@ -415,40 +499,30 @@ function WhatsAppStyle() {
         background: #f0f2f5;
         display: flex;
         align-items: center;
-        gap: 7px;
-        padding: 8px 10px;
+        gap: 5px;
+        padding: 8px 8px;
         border-top: 1px solid #ddd;
       }
 
-      .wa-icon-button {
+      .wa-icon-button,
+      .wa-file-label {
         width: 42px;
         height: 42px;
         border: 0;
         border-radius: 50%;
         background: transparent;
         color: #54656f;
-        font-size: 23px;
+        font-size: 22px;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-      }
-
-      .wa-icon-button:hover {
-        background: #e2e6e9;
-      }
-
-      .wa-file-label {
-        width: 42px;
-        height: 42px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #54656f;
-        font-size: 23px;
         cursor: pointer;
-        flex-shrink: 0;
+      }
+
+      .wa-icon-button:hover,
+      .wa-file-label:hover {
+        background: #e2e6e9;
       }
 
       .wa-file-label input {
@@ -463,7 +537,7 @@ function WhatsAppStyle() {
         outline: none;
         border-radius: 22px;
         background: white;
-        padding: 0 17px;
+        padding: 0 16px;
         font-size: 15px;
       }
 
@@ -496,29 +570,13 @@ function WhatsAppStyle() {
         font-size: 12px;
         box-shadow: 0 2px 8px rgba(0,0,0,.15);
         color: #54656f;
-      }
-
-      .wa-empty {
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        padding: 25px;
-        color: #667781;
-        background: #efeae2;
-      }
-
-      .wa-empty-icon {
-        font-size: 55px;
-        margin-bottom: 10px;
+        z-index: 10;
       }
 
       .wa-page {
         height: 100%;
         overflow-y: auto;
-        padding: 20px;
+        padding: 18px;
         background: #efeae2;
       }
 
@@ -526,7 +584,7 @@ function WhatsAppStyle() {
         background: white;
         border-radius: 12px;
         padding: 18px;
-        margin-bottom: 18px;
+        margin-bottom: 16px;
         box-shadow: 0 1px 2px rgba(0,0,0,.08);
       }
 
@@ -631,97 +689,25 @@ function WhatsAppStyle() {
         padding: 10px;
       }
 
-      .wa-message-menu {
-        position: absolute;
-        top: 5px;
-        right: 5px;
-        z-index: 20;
-      }
-
-      .wa-message-menu > button {
-        border: 0;
-        background: transparent;
-        color: #54656f;
-        font-size: 18px;
-        padding: 2px 5px;
-      }
-
-      .wa-message-menu-panel {
-        position: absolute;
-        top: 27px;
-        right: 0;
-        width: 180px;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 4px 18px rgba(0,0,0,.2);
-        overflow: hidden;
-      }
-
-      .wa-message-menu-panel button {
-        width: 100%;
-        border: 0;
-        background: white;
-        color: #222;
-        padding: 11px 13px;
-        text-align: left;
-        font-size: 13px;
-      }
-
-      .wa-message-menu-panel button:hover {
-        background: #f1f1f1;
-      }
-
-      .wa-edited {
-        font-size: 10px;
-        color: #667781;
-        margin-left: 5px;
-        font-style: italic;
-      }
-
-      .wa-deleted {
-        color: #667781;
-        font-style: italic;
-      }
-
-      .wa-edit-box {
+      .wa-empty {
+        height: 100vh;
         display: flex;
+        flex-direction: column;
         align-items: center;
-        gap: 5px;
-        margin-top: 4px;
+        justify-content: center;
+        background: #efeae2;
+        color: #667781;
       }
 
-      .wa-edit-box input {
-        min-width: 150px;
-        max-width: 250px;
-        border: 1px solid #bbb;
-        border-radius: 8px;
-        padding: 8px;
-        outline: none;
-      }
-
-      .wa-edit-save {
-        border: 0;
-        background: #128c7e;
-        color: white;
-        border-radius: 7px;
-        padding: 8px 10px;
-        font-size: 12px;
-      }
-
-      .wa-edit-cancel {
-        border: 0;
-        background: #777;
-        color: white;
-        border-radius: 7px;
-        padding: 8px 10px;
-        font-size: 12px;
+      .wa-empty-icon {
+        font-size: 55px;
       }
 
       @media (max-width: 700px) {
 
         .wa-topbar {
           height: 58px;
-          padding: 0 13px;
+          padding: 0 12px;
         }
 
         .wa-brand-title {
@@ -745,24 +731,24 @@ function WhatsAppStyle() {
         }
 
         .wa-bubble {
-          max-width: 82%;
+          max-width: 84%;
         }
 
         .wa-composer {
-          padding: 7px 6px;
-          gap: 3px;
+          padding: 6px 4px;
+          gap: 2px;
         }
 
         .wa-icon-button,
         .wa-file-label {
           width: 38px;
           height: 38px;
-          font-size: 20px;
+          font-size: 19px;
         }
 
         .wa-textbox {
           height: 42px;
-          padding: 0 14px;
+          padding: 0 13px;
           font-size: 14px;
         }
 
@@ -785,9 +771,9 @@ function WhatsAppStyle() {
 
         .wa-edit-box input {
           width: 100%;
-          max-width: none;
         }
       }
+
     `}</style>
   );
 }
@@ -816,41 +802,28 @@ function App() {
 
   }, []);
 
-
   if (user === undefined) {
-
     return (
       <>
         <WhatsAppStyle />
 
         <div className="wa-empty">
-
-          <div className="wa-empty-icon">
-            💬
-          </div>
-
+          <div className="wa-empty-icon">💬</div>
           <h2>Chatdo</h2>
-
           <p>Loading...</p>
-
         </div>
       </>
     );
-
   }
 
-
   if (!user) {
-
     return (
       <>
         <WhatsAppStyle />
         <Auth />
       </>
     );
-
   }
-
 
   return (
     <>
@@ -858,13 +831,38 @@ function App() {
       <SocialApp user={user} />
     </>
   );
-
 }
 
 
 /* =========================================================
    AUTH
 ========================================================= */
+
+function getFirebaseError(error) {
+
+  const code =
+    error?.code || "";
+
+  const messages = {
+    "auth/invalid-credential":
+      "Email or password is incorrect.",
+    "auth/invalid-email":
+      "Please enter a valid email.",
+    "auth/email-already-in-use":
+      "This email is already registered.",
+    "auth/weak-password":
+      "Password should be at least 6 characters.",
+    "auth/network-request-failed":
+      "Network error. Please try again."
+  };
+
+  return (
+    messages[code] ||
+    error?.message ||
+    "Something went wrong."
+  );
+}
+
 
 function Auth() {
 
@@ -913,7 +911,6 @@ function Auth() {
             password
           );
 
-
         await updateProfile(
           result.user,
           {
@@ -922,40 +919,19 @@ function Auth() {
           }
         );
 
-
         await setDoc(
-          doc(
-            db,
-            "users",
-            result.user.uid
-          ),
+          doc(db, "users", result.user.uid),
           {
-            uid:
-              result.user.uid,
-
-            email:
-              result.user.email,
-
-            name:
-              name.trim(),
-
-            photoURL:
-              "",
-
-            online:
-              true,
-
-            lastSeen:
-              serverTimestamp(),
-
-            createdAt:
-              serverTimestamp()
+            uid: result.user.uid,
+            email: result.user.email,
+            name: name.trim(),
+            photoURL: "",
+            online: true,
+            lastSeen: serverTimestamp(),
+            createdAt: serverTimestamp()
           },
-          {
-            merge: true
-          }
+          { merge: true }
         );
-
       }
 
     } catch (error) {
@@ -969,7 +945,6 @@ function Auth() {
       setLoading(false);
 
     }
-
   }
 
 
@@ -984,28 +959,20 @@ function Auth() {
           Chat, connect and share stories.
         </p>
 
-
-        <form
-          onSubmit={submit}
-        >
+        <form onSubmit={submit}>
 
           {mode === "signup" && (
-
             <input
               className="wa-input"
               type="text"
               placeholder="Your name"
               value={name}
               onChange={e =>
-                setName(
-                  e.target.value
-                )
+                setName(e.target.value)
               }
               required
             />
-
           )}
-
 
           <input
             className="wa-input"
@@ -1013,13 +980,10 @@ function Auth() {
             placeholder="Email address"
             value={email}
             onChange={e =>
-              setEmail(
-                e.target.value
-              )
+              setEmail(e.target.value)
             }
             required
           />
-
 
           <input
             className="wa-input"
@@ -1027,14 +991,11 @@ function Auth() {
             placeholder="Password"
             value={password}
             onChange={e =>
-              setPassword(
-                e.target.value
-              )
+              setPassword(e.target.value)
             }
             minLength={6}
             required
           />
-
 
           <button
             className="wa-primary"
@@ -1054,15 +1015,11 @@ function Auth() {
 
         </form>
 
-
         {error && (
-
           <div className="wa-error">
             {error}
           </div>
-
         )}
-
 
         <button
           className="wa-link"
@@ -1070,4 +1027,1909 @@ function Auth() {
 
             setError("");
 
-       
+            setMode(
+              mode === "login"
+                ? "signup"
+                : "login"
+            );
+
+          }}
+        >
+          {mode === "login"
+            ? "Create a new account"
+            : "Already have an account? Sign in"}
+        </button>
+
+      </div>
+    </div>
+  );
+}
+
+
+/* =========================================================
+   SOCIAL APP
+========================================================= */
+
+function SocialApp({ user }) {
+
+  const [tab, setTab] =
+    useState("chats");
+
+  const [selectedUser, setSelectedUser] =
+    useState(null);
+
+  const [people, setPeople] =
+    useState([]);
+
+  useEffect(() => {
+
+    const q = query(
+      usersRef,
+      limit(100)
+    );
+
+    const unsubscribe =
+      onSnapshot(
+        q,
+        snapshot => {
+
+          const list =
+            snapshot.docs
+              .map(item => ({
+                id: item.id,
+                ...item.data()
+              }))
+              .filter(
+                person =>
+                  person.uid !== user.uid
+              );
+
+          setPeople(list);
+
+          if (selectedUser) {
+
+            const updated =
+              list.find(
+                person =>
+                  person.uid ===
+                  selectedUser.uid
+              );
+
+            if (updated) {
+              setSelectedUser(updated);
+            }
+          }
+        }
+      );
+
+    return () => unsubscribe();
+
+  }, [user.uid]);
+
+
+  usePresence(user);
+
+
+  return (
+    <div className="wa-app">
+
+      <div className="wa-topbar">
+
+        <div className="wa-brand">
+
+          <div className="wa-brand-title">
+            Chatdo
+          </div>
+
+          <div className="wa-brand-user">
+            {user.displayName ||
+              user.email}
+          </div>
+
+        </div>
+
+        <button
+          className="wa-logout"
+          onClick={() =>
+            signOut(auth)
+          }
+        >
+          Logout
+        </button>
+
+      </div>
+
+
+      <div className="wa-tabs">
+
+        <button
+          className={
+            "wa-tab " +
+            (tab === "chats"
+              ? "active"
+              : "")
+          }
+          onClick={() =>
+            setTab("chats")
+          }
+        >
+          Chats
+        </button>
+
+        <button
+          className={
+            "wa-tab " +
+            (tab === "stories"
+              ? "active"
+              : "")
+          }
+          onClick={() =>
+            setTab("stories")
+          }
+        >
+          Stories
+        </button>
+
+        <button
+          className={
+            "wa-tab " +
+            (tab === "people"
+              ? "active"
+              : "")
+          }
+          onClick={() =>
+            setTab("people")
+          }
+        >
+          People
+        </button>
+
+      </div>
+
+
+      <main className="wa-main">
+
+        {tab === "stories" && (
+          <Stories user={user} />
+        )}
+
+        {tab === "people" && (
+          <People
+            user={user}
+            onChat={person => {
+              setSelectedUser(person);
+              setTab("chats");
+            }}
+          />
+        )}
+
+        {tab === "chats" && (
+
+          <div className="wa-chat-layout">
+
+            <aside className="wa-sidebar">
+
+              <div className="wa-sidebar-title">
+                Chats
+              </div>
+
+              {people.length === 0 ? (
+
+                <div
+                  style={{
+                    padding: 20,
+                    color: "#667781"
+                  }}
+                >
+                  No other users yet.
+                </div>
+
+              ) : (
+
+                people.map(person => (
+
+                  <button
+                    className={
+                      "wa-person " +
+                      (
+                        selectedUser?.uid ===
+                        person.uid
+                          ? "selected"
+                          : ""
+                      )
+                    }
+                    key={person.uid}
+                    onClick={() =>
+                      setSelectedUser(person)
+                    }
+                  >
+
+                    <Avatar user={person} />
+
+                    <div className="wa-person-info">
+
+                      <div className="wa-person-name">
+                        {person.name ||
+                          person.email}
+                      </div>
+
+                      <div
+                        className={
+                          person.online
+                            ? "wa-online"
+                            : "wa-offline"
+                        }
+                      >
+                        {person.online
+                          ? "Online"
+                          : "Offline"}
+                      </div>
+
+                    </div>
+
+                  </button>
+                ))
+              )}
+
+            </aside>
+
+
+            <section>
+
+              {selectedUser ? (
+
+                <Chat
+                  user={user}
+                  other={selectedUser}
+                />
+
+              ) : (
+
+                <div className="wa-empty">
+
+                  <div className="wa-empty-icon">
+                    💬
+                  </div>
+
+                  <h2>
+                    Welcome to Chatdo
+                  </h2>
+
+                  <p>
+                    Select a person to start chatting.
+                  </p>
+
+                </div>
+              )}
+
+            </section>
+
+          </div>
+        )}
+
+      </main>
+
+    </div>
+  );
+}
+
+
+/* =========================================================
+   PRESENCE
+========================================================= */
+
+function usePresence(user) {
+
+  useEffect(() => {
+
+    const userDoc =
+      doc(db, "users", user.uid);
+
+    setDoc(
+      userDoc,
+      {
+        uid: user.uid,
+        email: user.email,
+        name:
+          user.displayName ||
+          user.email,
+        online: true,
+        lastSeen: serverTimestamp()
+      },
+      { merge: true }
+    ).catch(() => {});
+
+
+    const handleVisibility = () => {
+
+      const online =
+        document.visibilityState ===
+        "visible";
+
+      setDoc(
+        userDoc,
+        {
+          online,
+          lastSeen:
+            serverTimestamp()
+        },
+        { merge: true }
+      ).catch(() => {});
+    };
+
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibility
+    );
+
+
+    return () => {
+
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibility
+      );
+
+      setDoc(
+        userDoc,
+        {
+          online: false,
+          lastSeen:
+            serverTimestamp()
+        },
+        { merge: true }
+      ).catch(() => {});
+    };
+
+  }, [user.uid]);
+}
+
+
+/* =========================================================
+   CHAT
+========================================================= */
+
+function Chat({ user, other }) {
+
+  const chatId =
+    [user.uid, other.uid]
+      .sort()
+      .join("_");
+
+  const messagesRef =
+    collection(
+      db,
+      "chats",
+      chatId,
+      "messages"
+    );
+
+  const chatDoc =
+    doc(db, "chats", chatId);
+
+
+  const [messages, setMessages] =
+    useState([]);
+
+  const [text, setText] =
+    useState("");
+
+  const [file, setFile] =
+    useState(null);
+
+  const [sending, setSending] =
+    useState(false);
+
+  const [typingUser, setTypingUser] =
+    useState(false);
+
+  const [menuId, setMenuId] =
+    useState(null);
+
+  const [editingId, setEditingId] =
+    useState(null);
+
+  const [editingText, setEditingText] =
+    useState("");
+
+  const bottomRef =
+    useRef(null);
+
+  const typingTimer =
+    useRef(null);
+
+
+  /* MESSAGE LISTENER */
+
+  useEffect(() => {
+
+    const q =
+      query(
+        messagesRef,
+        orderBy(
+          "createdAt",
+          "asc"
+        )
+      );
+
+    const unsubscribe =
+      onSnapshot(
+        q,
+        snapshot => {
+
+          setMessages(
+            snapshot.docs.map(item => ({
+              id: item.id,
+              ...item.data()
+            }))
+          );
+
+        },
+        error => {
+          console.error(
+            "Messages error:",
+            error
+          );
+        }
+      );
+
+    return () => unsubscribe();
+
+  }, [chatId]);
+
+
+  /* TYPING LISTENER */
+
+  useEffect(() => {
+
+    const unsubscribe =
+      onSnapshot(
+        chatDoc,
+        snapshot => {
+
+          const data =
+            snapshot.data();
+
+          setTypingUser(
+            !!(
+              data?.typingUid &&
+              data.typingUid !== user.uid
+            )
+          );
+
+        },
+        () => {}
+      );
+
+    return () => unsubscribe();
+
+  }, [chatId, user.uid]);
+
+
+  /* AUTO SCROLL */
+
+  useEffect(() => {
+
+    bottomRef.current?.scrollIntoView({
+      behavior: "smooth"
+    });
+
+  }, [messages, typingUser]);
+
+
+  /* MARK SEEN */
+
+  useEffect(() => {
+
+    async function markSeen() {
+
+      const unseen =
+        messages.filter(
+          message =>
+            message.senderId ===
+              other.uid &&
+            !message.seenBy?.includes(
+              user.uid
+            ) &&
+            !message.deletedForEveryone
+        );
+
+      if (!unseen.length) {
+        return;
+      }
+
+      try {
+
+        const batch =
+          writeBatch(db);
+
+        unseen.forEach(message => {
+
+          const messageDoc =
+            doc(
+              db,
+              "chats",
+              chatId,
+              "messages",
+              message.id
+            );
+
+          batch.update(
+            messageDoc,
+            {
+              seenBy:
+                arrayUnion(user.uid)
+            }
+          );
+        });
+
+        await batch.commit();
+
+      } catch (error) {
+
+        console.error(
+          "Seen update error:",
+          error
+        );
+
+      }
+    }
+
+    markSeen();
+
+  }, [
+    messages,
+    chatId,
+    user.uid,
+    other.uid
+  ]);
+
+
+  /* TYPING */
+
+  function handleTyping(event) {
+
+    const value =
+      event.target.value;
+
+    setText(value);
+
+    setDoc(
+      chatDoc,
+      {
+        members: [
+          user.uid,
+          other.uid
+        ],
+        typingUid:
+          value.trim()
+            ? user.uid
+            : null
+      },
+      { merge: true }
+    ).catch(() => {});
+
+
+    clearTimeout(
+      typingTimer.current
+    );
+
+
+    if (value.trim()) {
+
+      typingTimer.current =
+        setTimeout(() => {
+
+          setDoc(
+            chatDoc,
+            {
+              typingUid: null
+            },
+            { merge: true }
+          ).catch(() => {});
+
+        }, 1500);
+    }
+  }
+
+
+  /* SEND MESSAGE */
+
+  async function sendMessage() {
+
+    const cleanText =
+      text.trim();
+
+    if (!cleanText && !file) {
+      return;
+    }
+
+    setSending(true);
+
+    try {
+
+      /* Make chat document first */
+      await setDoc(
+        chatDoc,
+        {
+          members: [
+            user.uid,
+            other.uid
+          ],
+          lastMessage:
+            cleanText ||
+            "📷 Photo",
+          updatedAt:
+            serverTimestamp(),
+          typingUid: null
+        },
+        { merge: true }
+      );
+
+
+      let imageURL = "";
+
+
+      if (file) {
+
+        if (
+          file.size >
+          10 * 1024 * 1024
+        ) {
+          alert(
+            "Image must be smaller than 10 MB."
+          );
+          setSending(false);
+          return;
+        }
+
+        const fileRef =
+          ref(
+            storage,
+            `chatImages/${chatId}/${Date.now()}-${file.name}`
+          );
+
+        await uploadBytes(
+          fileRef,
+          file
+        );
+
+        imageURL =
+          await getDownloadURL(
+            fileRef
+          );
+      }
+
+
+      await addDoc(
+        messagesRef,
+        {
+          senderId:
+            user.uid,
+
+          senderName:
+            user.displayName ||
+            user.email,
+
+          text:
+            cleanText,
+
+          imageURL,
+
+          createdAt:
+            serverTimestamp(),
+
+          likes: [],
+
+          seenBy: [],
+
+          edited: false,
+
+          deletedForEveryone:
+            false,
+
+          deletedFor: []
+        }
+      );
+
+
+      setText("");
+      setFile(null);
+
+      await setDoc(
+        chatDoc,
+        {
+          typingUid: null
+        },
+        { merge: true }
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Send message error:",
+        error
+      );
+
+      alert(
+        "Message send failed. Check Firebase permissions."
+      );
+
+    } finally {
+
+      setSending(false);
+
+    }
+  }
+
+
+  /* ENTER TO SEND */
+
+  function handleKeyDown(event) {
+
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey
+    ) {
+
+      event.preventDefault();
+
+      sendMessage();
+    }
+  }
+
+
+  /* LIKE */
+
+  async function toggleLike(message) {
+
+    try {
+
+      const messageDoc =
+        doc(
+          db,
+          "chats",
+          chatId,
+          "messages",
+          message.id
+        );
+
+      const liked =
+        message.likes?.includes(
+          user.uid
+        );
+
+
+      await updateDoc(
+        messageDoc,
+        {
+          likes:
+            liked
+              ? arrayRemove(user.uid)
+              : arrayUnion(user.uid)
+        }
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Like error:",
+        error
+      );
+    }
+  }
+
+
+  /* DELETE FOR ME */
+
+  async function deleteForMe(message) {
+
+    try {
+
+      await updateDoc(
+        doc(
+          db,
+          "chats",
+          chatId,
+          "messages",
+          message.id
+        ),
+        {
+          deletedFor:
+            arrayUnion(user.uid)
+        }
+      );
+
+      setMenuId(null);
+
+    } catch (error) {
+
+      console.error(
+        "Delete for me error:",
+        error
+      );
+
+      alert(
+        "Delete failed. Firebase rules may need updating."
+      );
+    }
+  }
+
+
+  /* DELETE FOR EVERYONE */
+
+  async function deleteForEveryone(message) {
+
+    if (
+      message.senderId !==
+      user.uid
+    ) {
+      return;
+    }
+
+
+    const confirmed =
+      window.confirm(
+        "Delete this message for everyone?"
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+
+    try {
+
+      await updateDoc(
+        doc(
+          db,
+          "chats",
+          chatId,
+          "messages",
+          message.id
+        ),
+        {
+          text: "",
+          imageURL: "",
+          deletedForEveryone:
+            true,
+          deletedAt:
+            serverTimestamp()
+        }
+      );
+
+      setMenuId(null);
+
+    } catch (error) {
+
+      console.error(
+        "Delete for everyone error:",
+        error
+      );
+
+      alert(
+        "Delete failed. Firebase Firestore Rules may be blocking this action."
+      );
+    }
+  }
+
+
+  /* START EDIT */
+
+  function startEdit(message) {
+
+    if (
+      message.senderId !==
+      user.uid
+    ) {
+      return;
+    }
+
+    if (
+      message.deletedForEveryone
+    ) {
+      return;
+    }
+
+    const created =
+      message.createdAt?.toMillis?.();
+
+    if (!created) {
+      alert(
+        "This message is still being saved. Try again in a moment."
+      );
+      return;
+    }
+
+    const oneHour =
+      60 * 60 * 1000;
+
+    if (
+      Date.now() - created >
+      oneHour
+    ) {
+      alert(
+        "Messages can only be edited within 1 hour."
+      );
+      setMenuId(null);
+      return;
+    }
+
+    setEditingId(message.id);
+    setEditingText(
+      message.text || ""
+    );
+    setMenuId(null);
+  }
+
+
+  /* SAVE EDIT */
+
+  async function saveEdit(message) {
+
+    const clean =
+      editingText.trim();
+
+    if (!clean) {
+      return;
+    }
+
+    try {
+
+      const created =
+        message.createdAt?.toMillis?.();
+
+      if (!created) {
+        return;
+      }
+
+      if (
+        Date.now() - created >
+        60 * 60 * 1000
+      ) {
+        alert(
+          "Edit time expired. Only the first 1 hour is allowed."
+        );
+        setEditingId(null);
+        return;
+      }
+
+
+      await updateDoc(
+        doc(
+          db,
+          "chats",
+          chatId,
+          "messages",
+          message.id
+        ),
+        {
+          text: clean,
+          edited: true,
+          updatedAt:
+            serverTimestamp()
+        }
+      );
+
+      setEditingId(null);
+      setEditingText("");
+
+    } catch (error) {
+
+      console.error(
+        "Edit error:",
+        error
+      );
+
+      alert(
+        "Edit failed. Firebase Rules may need updating."
+      );
+    }
+  }
+
+
+  /* TIME */
+
+  function formatTime(timestamp) {
+
+    if (!timestamp) {
+      return "";
+    }
+
+    try {
+
+      return timestamp
+        .toDate()
+        .toLocaleTimeString(
+          [],
+          {
+            hour: "2-digit",
+            minute: "2-digit"
+          }
+        );
+
+    } catch {
+
+      return "";
+    }
+  }
+
+
+  return (
+    <div className="wa-chat">
+
+      {/* HEADER */}
+
+      <div className="wa-chat-header">
+
+        <Avatar user={other} />
+
+        <div className="wa-chat-header-info">
+
+          <div className="wa-chat-name">
+            {other.name ||
+              other.email}
+          </div>
+
+          <div className="wa-chat-status">
+
+            {typingUser
+              ? "typing..."
+              : other.online
+                ? "Online"
+                : "Offline"}
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      {/* MESSAGES */}
+
+      <div className="wa-messages">
+
+        {messages.length === 0 && (
+
+          <div
+            style={{
+              textAlign: "center",
+              color: "#667781",
+              padding: 30
+            }}
+          >
+            No messages yet.
+          </div>
+        )}
+
+
+        {messages.map(message => {
+
+          const mine =
+            message.senderId ===
+            user.uid;
+
+          const hiddenForMe =
+            message.deletedFor?.includes(
+              user.uid
+            );
+
+          if (hiddenForMe) {
+            return null;
+          }
+
+
+          const liked =
+            message.likes?.includes(
+              user.uid
+            );
+
+
+          const seen =
+            message.seenBy?.includes(
+              other.uid
+            );
+
+
+          const isEditing =
+            editingId ===
+            message.id;
+
+
+          return (
+            <div
+              key={message.id}
+              className={
+                "wa-message-row " +
+                (
+                  mine
+                    ? "mine"
+                    : "other"
+                )
+              }
+            >
+
+              <div className="wa-bubble">
+
+
+                {/* MESSAGE MENU */}
+
+                <div className="wa-message-menu">
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMenuId(
+                        menuId ===
+                        message.id
+                          ? null
+                          : message.id
+                      )
+                    }
+                  >
+                    ⋮
+                  </button>
+
+
+                  {menuId ===
+                    message.id && (
+
+                    <div className="wa-message-menu-panel">
+
+                      {mine &&
+                        !message.deletedForEveryone && (
+                          <button
+                            onClick={() =>
+                              startEdit(
+                                message
+                              )
+                            }
+                          >
+                            ✏️ Edit
+                          </button>
+                        )}
+
+
+                      {!message.deletedForEveryone && (
+                        <button
+                          onClick={() =>
+                            deleteForMe(
+                              message
+                            )
+                          }
+                        >
+                          🗑️ Delete for me
+                        </button>
+                      )}
+
+
+                      {mine &&
+                        !message.deletedForEveryone && (
+                          <button
+                            onClick={() =>
+                              deleteForEveryone(
+                                message
+                              )
+                            }
+                          >
+                            🚫 Delete for everyone
+                          </button>
+                        )}
+
+                    </div>
+                  )}
+
+                </div>
+
+
+                {/* DELETED MESSAGE */}
+
+                {message.deletedForEveryone ? (
+
+                  <span className="wa-deleted">
+                    🚫 This message was deleted
+                  </span>
+
+                ) : (
+
+                  <>
+
+                    {message.imageURL && (
+                      <img
+                        src={message.imageURL}
+                        className="wa-image"
+                        alt="sent"
+                      />
+                    )}
+
+
+                    {isEditing ? (
+
+                      <div className="wa-edit-box">
+
+                        <input
+                          value={editingText}
+                          onChange={e =>
+                            setEditingText(
+                              e.target.value
+                            )
+                          }
+                          autoFocus
+                        />
+
+                        <button
+                          className="wa-edit-save"
+                          onClick={() =>
+                            saveEdit(
+                              message
+                            )
+                          }
+                        >
+                          Save
+                        </button>
+
+                        <button
+                          className="wa-edit-cancel"
+                          onClick={() => {
+                            setEditingId(null);
+                            setEditingText("");
+                          }}
+                        >
+                          Cancel
+                        </button>
+
+                      </div>
+
+                    ) : (
+
+                      message.text && (
+                        <span className="wa-text">
+                          {message.text}
+
+                          {message.edited && (
+                            <span className="wa-edited">
+                              edited
+                            </span>
+                          )}
+                        </span>
+                      )
+                    )}
+
+                  </>
+                )}
+
+
+                {/* TIME */}
+
+                <span className="wa-time-line">
+
+                  <span className="wa-time">
+                    {formatTime(
+                      message.createdAt
+                    )}
+                  </span>
+
+
+                  {mine && (
+
+                    <span
+                      className={
+                        "wa-ticks " +
+                        (
+                          seen
+                            ? "seen"
+                            : "sent"
+                        )
+                      }
+                    >
+
+                      {seen
+                        ? "✓✓ 👁"
+                        : "✓"}
+
+                    </span>
+                  )}
+
+                </span>
+
+
+                {/* LIKE */}
+
+                {!message.deletedForEveryone && (
+
+                  <button
+                    className={
+                      "wa-heart " +
+                      (
+                        liked
+                          ? "liked"
+                          : ""
+                      )
+                    }
+                    onClick={() =>
+                      toggleLike(
+                        message
+                      )
+                    }
+                  >
+                    ♥{" "}
+                    {message.likes?.length ||
+                      0}
+                  </button>
+                )}
+
+              </div>
+
+            </div>
+          );
+        })}
+
+
+        {typingUser && (
+          <div className="wa-typing">
+            typing...
+          </div>
+        )}
+
+
+        <div ref={bottomRef} />
+
+      </div>
+
+
+      {/* COMPOSER */}
+
+      <div
+        style={{
+          position: "relative"
+        }}
+      >
+
+        {file && (
+          <div className="wa-selected-file">
+            📎 {file.name}
+          </div>
+        )}
+
+
+        <div className="wa-composer">
+
+
+          {/* ATTACHMENT */}
+
+          <label className="wa-file-label">
+
+            📎
+
+            <input
+              type="file"
+              accept="image/*"
+              onChange={event => {
+
+                const selected =
+                  event.target.files?.[0] ||
+                  null;
+
+                setFile(selected);
+
+              }}
+            />
+
+          </label>
+
+
+          {/* TEXT */}
+
+          <input
+            className="wa-textbox"
+            type="text"
+            value={text}
+            onChange={handleTyping}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message"
+          />
+
+
+          {/* CAMERA */}
+
+          <label className="wa-icon-button">
+
+            📷
+
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{
+                display: "none"
+              }}
+              onChange={event => {
+
+                const selected =
+                  event.target.files?.[0] ||
+                  null;
+
+                setFile(selected);
+
+              }}
+            />
+
+          </label>
+
+
+          {/* VOICE */}
+
+          <button
+            className="wa-icon-button"
+            type="button"
+            onClick={() =>
+              alert(
+                "Voice messages will be added in the next phase."
+              )
+            }
+          >
+            🎤
+          </button>
+
+
+          {/* SEND */}
+
+          <button
+            className="wa-send"
+            onClick={sendMessage}
+            disabled={
+              sending ||
+              (!text.trim() &&
+                !file)
+            }
+          >
+            {sending
+              ? "..."
+              : "➤"}
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
+
+/* =========================================================
+   STORIES
+========================================================= */
+
+function Stories({ user }) {
+
+  const [stories, setStories] =
+    useState([]);
+
+  const [text, setText] =
+    useState("");
+
+  const [file, setFile] =
+    useState(null);
+
+  const [posting, setPosting] =
+    useState(false);
+
+
+  useEffect(() => {
+
+    const q =
+      query(
+        storiesRef,
+        orderBy(
+          "createdAt",
+          "desc"
+        ),
+        limit(50)
+      );
+
+    const unsubscribe =
+      onSnapshot(
+        q,
+        snapshot => {
+
+          setStories(
+            snapshot.docs.map(item => ({
+              id: item.id,
+              ...item.data()
+            }))
+          );
+
+        }
+      );
+
+    return () => unsubscribe();
+
+  }, []);
+
+
+  async function postStory() {
+
+    if (
+      !text.trim() &&
+      !file
+    ) {
+      return;
+    }
+
+    setPosting(true);
+
+    try {
+
+      let imageURL = "";
+
+
+      if (file) {
+
+        if (
+          file.size >
+          10 * 1024 * 1024
+        ) {
+          alert(
+            "Image must be smaller than 10 MB."
+          );
+          setPosting(false);
+          return;
+        }
+
+        const fileRef =
+          ref(
+            storage,
+            `stories/${user.uid}/${Date.now()}-${file.name}`
+          );
+
+        await uploadBytes(
+          fileRef,
+          file
+        );
+
+        imageURL =
+          await getDownloadURL(
+            fileRef
+          );
+      }
+
+
+      await addDoc(
+        storiesRef,
+        {
+          uid: user.uid,
+          name:
+            user.displayName ||
+            user.email,
+          text:
+            text.trim(),
+          imageURL,
+          createdAt:
+            serverTimestamp(),
+          likes: []
+        }
+      );
+
+
+      setText("");
+      setFile(null);
+
+    } catch (error) {
+
+      console.error(
+        "Story error:",
+        error
+      );
+
+      alert(
+        "Story post failed."
+      );
+
+    } finally {
+
+      setPosting(false);
+
+    }
+  }
+
+
+  async function toggleStoryLike(story) {
+
+    try {
+
+      const storyDoc =
+        doc(
+          db,
+          "stories",
+          story.id
+        );
+
+      const liked =
+        story.likes?.includes(
+          user.uid
+        );
+
+
+      await updateDoc(
+        storyDoc,
+        {
+          likes:
+            liked
+              ? arrayRemove(user.uid)
+              : arrayUnion(user.uid)
+        }
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Story like error:",
+        error
+      );
+    }
+  }
+
+
+  return (
+    <div className="wa-page">
+
+      <div className="wa-card">
+
+        <h2>
+          Share a story
+        </h2>
+
+        <input
+          className="wa-input"
+          value={text}
+          onChange={e =>
+            setText(e.target.value)
+          }
+          placeholder="What's on your mind?"
+        />
+
+        <input
+          className="wa-input"
+          type="file"
+          accept="image/*"
+          onChange={e =>
+            setFile(
+              e.target.files?.[0] ||
+              null
+            )
+          }
+        />
+
+        <button
+          className="wa-primary"
+          onClick={postStory}
+          disabled={posting}
+        >
+          {posting
+            ? "Posting..."
+            : "Post"}
+        </button>
+
+      </div>
+
+
+      <div className="wa-stories">
+
+        {stories.map(story => (
+
+          <article
+            className="wa-story"
+            key={story.id}
+          >
+
+            <div className="wa-story-author">
+
+              <Avatar
+                user={{
+                  name: story.name
+                }}
+              />
+
+              <b>
+                {story.name}
+              </b>
+
+            </div>
+
+
+            {story.imageURL && (
+              <img
+                src={story.imageURL}
+                alt="story"
+              />
+            )}
+
+
+            {story.text && (
+              <p>
+                {story.text}
+              </p>
+            )}
+
+
+            <button
+              onClick={() =>
+                toggleStoryLike(
+                  story
+                )
+              }
+              style={{
+                border: 0,
+                background:
+                  "transparent"
+              }}
+            >
+              ♥{" "}
+              {story.likes?.length ||
+                0}
+            </button>
+
+          </article>
+        ))}
+
+      </div>
+
+    </div>
+  );
+}
+
+
+/* =========================================================
+   PEOPLE
+========================================================= */
+
+function People({ user, onChat }) {
+
+  const [people, setPeople] =
+    useState([]);
+
+
+  useEffect(() => {
+
+    const q =
+      query(
+        usersRef,
+        limit(100)
+      );
+
+    const unsubscribe =
+      onSnapshot(
+        q,
+        snapshot => {
+
+          const list =
+            snapshot.docs
+              .map(item =>
+                item.data()
+              )
+              .filter(
+                person =>
+                  person.uid !==
+                  user.uid
+              );
+
+          setPeople(list);
+
+        }
+      );
+
+    return () => unsubscribe();
+
+  }, [user.uid]);
+
+
+  return (
+    <div className="wa-page">
+
+      <h2>
+        People
+      </h2>
+
+
+      {people.length === 0 ? (
+
+        <div className="wa-card">
+          No other users yet.
+        </div>
+
+      ) : (
+
+        people.map(person => (
+
+          <div
+            className="wa-people-row"
+            key={person.uid}
+          >
+
+            <Avatar user={person} />
+
+            <div className="wa-person-info">
+
+              <div className="wa-person-name">
+                {person.name ||
+                  person.email}
+              </div>
+
+              <div
+                className={
+                  person.online
+                    ? "wa-online"
+                    : "wa-offline"
+                }
+              >
+                {person.online
+                  ? "Online"
+                  : "Offline"}
+              </div>
+
+            </div>
+
+
+            <button
+              className="wa-primary"
+              onClick={() =>
+                onChat(person)
+              }
+            >
+              Message
+            </button>
+
+          </div>
+
+        ))
+      )}
+
+    </div>
+  );
+}
+
+
+/* =========================================================
+   AVATAR
+========================================================= */
+
+function Avatar({ user }) {
+
+  const name =
+    user?.name ||
+    user?.email ||
+    "?";
+
+  return (
+    <div className="wa-avatar">
+
+      {name
+        .charAt(0)
+        .toUpperCase()}
+
+    </div>
+  );
+}
+
+
+/* =========================================================
+   START APP
+========================================================= */
+
+const rootElement =
+  document.getElementById("root");
+
+if (!rootElement) {
+  throw new Error(
+    "Root element not found."
+  );
+}
+
+createRoot(rootElement).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
