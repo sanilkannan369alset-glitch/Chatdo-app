@@ -23,6 +23,7 @@ import {
   onSnapshot,
   serverTimestamp,
   updateDoc,
+  deleteDoc,
   arrayUnion,
   arrayRemove,
   limit,
@@ -2670,8 +2671,44 @@ function Stories({ user }) {
         error
       );
     }
+    }  }
+
+  async function deleteStory(story) {
+    if (story.uid !== user.uid) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Delete this story?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteDoc(
+        doc(
+          db,
+          "stories",
+          story.id
+        )
+      );
+    } catch (error) {
+      console.error(
+        "Story delete error:",
+        error
+      );
+
+      alert(
+        "Story delete failed."
+      );
+    }
   }
 
+  return (
+    <div className="wa-page">
+  
 
   return (
     <div className="wa-page">
@@ -2771,6 +2808,24 @@ function Stories({ user }) {
               {story.likes?.length ||
                 0}
             </button>
+            {story.uid === user.uid && (
+  <button
+    onClick={() =>
+      deleteStory(story)
+    }
+    style={{
+      border: 0,
+      background: "#ffe5e5",
+      color: "#c62828",
+      borderRadius: "7px",
+      padding: "7px 12px",
+      marginLeft: "8px",
+      cursor: "pointer"
+    }}
+  >
+    🗑️ Delete
+  </button>
+)}
 
           </article>
         ))}
