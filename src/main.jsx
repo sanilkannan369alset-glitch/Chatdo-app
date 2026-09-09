@@ -108,7 +108,7 @@ function ChatHome({user,selected,setSelected}){
   <section>
   {selected ? <div>CHAT OPENED</div> : <div className="empty">Select someone to start chatting.</div>}
 </section>
-}
+</div>}
 
 function Chat({user,other}){
   const chatId=[user.uid,other.uid].sort().join("_");
