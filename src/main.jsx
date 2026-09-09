@@ -293,8 +293,7 @@ function useChatMessages(chatId){
     const q=query(collection(db,"chats",chatId,"messages"),orderBy("createdAt","asc"));
     return onSnapshot(q,s=>setMessages(s.docs.map(d=>({id:d.id,...d.data()}))),e=>console.error(e));
   },[chatId]);
-  return messages;
-      } }
+  return messages;}
 
 function Chat({user,other}){
   const chatId=[user.uid,other.uid].sort().join("_");
@@ -715,8 +714,8 @@ function Chat({user,other}){
     }finally{
       setSending(false);
     }
-          } 
-  function startEdit(m){
+      } 
+    function startEdit(m){
     if(m.senderId!==user.uid||m.deletedForEveryone)return;
 
     const created=m.createdAt?.toMillis?.();
@@ -1467,3 +1466,4 @@ createRoot(rootElement).render(
     <App/>
   </React.StrictMode>
 );
+                                                                                                                                                                                                   }
