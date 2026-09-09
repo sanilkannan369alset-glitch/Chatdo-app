@@ -106,7 +106,7 @@ function ChatHome({user,selected,setSelected}){
         <Avatar u={p}/><span><b>{p.name||p.email}</b><small>{p.online?"Online":"Offline"}</small></span>
          </button>)}</aside>
   <section>
-  {selected ? <div>CHAT OPENED</div> : <div className="empty">Select someone to start chatting.</div>}
+{selected ? <Chat user={user} other={selected} /> : <div className="empty">Select someone to start chatting.</div>}
 </section>
 </div>}
 
