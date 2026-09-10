@@ -1,9 +1,13 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
+
 import { createRoot } from "react-dom/client";
 
-import {
-  initializeApp
-} from "firebase/app";
+import { initializeApp } from "firebase/app";
 
 import {
   getAuth,
@@ -18,7 +22,6 @@ import {
 import {
   getFirestore,
   collection,
-  collectionGroup,
   doc,
   getDoc,
   getDocs,
@@ -30,7 +33,6 @@ import {
   query,
   where,
   orderBy,
-  limit,
   serverTimestamp,
   arrayUnion,
   arrayRemove
@@ -42,6 +44,7 @@ import {
   uploadBytes,
   getDownloadURL
 } from "firebase/storage";
+
 
 /* =========================================================
    FIREBASE
@@ -66,9 +69,10 @@ try {
   auth = getAuth(firebaseApp);
   db = getFirestore(firebaseApp);
   storage = getStorage(firebaseApp);
-} catch (e) {
-  console.error("Firebase initialization error:", e);
+} catch (error) {
+  console.error("Firebase initialization error:", error);
 }
+
 
 /* =========================================================
    HELPERS
@@ -78,6 +82,7 @@ const TABS = ["chats", "stories", "calls", "people"];
 
 function timeText(value) {
   if (!value) return "";
+
   const d =
     typeof value?.toDate === "function"
       ? value.toDate()
@@ -93,6 +98,7 @@ function timeText(value) {
 
 function dateTimeText(value) {
   if (!value) return "";
+
   const d =
     typeof value?.toDate === "function"
       ? value.toDate()
@@ -109,7 +115,11 @@ function dateTimeText(value) {
 }
 
 function normalizePhone(value = "") {
-  return value.replace(/[^\d]/g, "");
+  return String(value).replace(/[^\d]/g, "");
+}
+
+function normalizeText(value = "") {
+  return String(value).trim().toLowerCase();
 }
 
 function chatIdFor(a, b) {
@@ -130,35 +140,70 @@ function safeName(user) {
   );
 }
 
+function initials(user) {
+  const name = safeName(user);
+
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((x) => x[0])
+    .join("")
+    .toUpperCase();
+}
+
+function formatMessagePreview(message) {
+  if (!message) return "";
+
+  if (message.type === "image") return "📷 Photo";
+  if (message.type === "video") return "🎥 Video";
+  if (message.type === "audio") return "🎤 Voice message";
+
+  return message.text || "";
+}
+
 function messageStatus(message, uid) {
   if (message.senderId !== uid) return "";
 
-  if ((message.seenBy || []).includes(uid) === false) {
-    if ((message.seenBy || []).some((x) => x !== uid)) return "seen";
+  const seenBy = message.seenBy || [];
+  const deliveredTo = message.deliveredTo || [];
+
+  if (seenBy.some((x) => x !== uid)) {
+    return "seen";
   }
 
-  if ((message.deliveredTo || []).some((x) => x !== uid)) {
+  if (deliveredTo.some((x) => x !== uid)) {
     return "delivered";
   }
 
   return "sent";
 }
 
-function formatMessagePreview(message) {
-  if (!message) return "";
-  if (message.type === "image") return "📷 Photo";
-  if (message.type === "video") return "🎥 Video";
-  if (message.type === "audio") return "🎤 Voice message";
-  return message.text || "";
+function getMillis(value) {
+  if (!value) return 0;
+
+  if (typeof value?.toMillis === "function") {
+    return value.toMillis();
+  }
+
+  if (typeof value?.toDate === "function") {
+    return value.toDate().getTime();
+  }
+
+  const n = new Date(value).getTime();
+
+  return Number.isNaN(n) ? 0 : n;
 }
 
+
 /* =========================================================
-   GLOBAL STYLES
+   STYLES
 ========================================================= */
 
 function Styles() {
   return (
     <style>{`
+
       * {
         box-sizing: border-box;
       }
@@ -167,9 +212,14 @@ function Styles() {
       body,
       #root {
         margin: 0;
-        min-height: 100%;
+        padding: 0;
         width: 100%;
-        font-family: Inter, Arial, Helvetica, sans-serif;
+        min-height: 100%;
+        font-family:
+          Inter,
+          Arial,
+          Helvetica,
+          sans-serif;
         background: #f4f7fb;
         color: #172033;
       }
@@ -186,13 +236,18 @@ function Styles() {
 
       .app {
         min-height: 100vh;
-        background: linear-gradient(135deg, #f7f9fc, #edf3fa);
+        background:
+          linear-gradient(
+            135deg,
+            #f8fafc,
+            #eef4fb
+          );
       }
 
       .topbar {
         height: 64px;
         background: rgba(255,255,255,.96);
-        border-bottom: 1px solid #e4e9f1;
+        border-bottom: 1px solid #e5e9ef;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -200,7 +255,7 @@ function Styles() {
         position: sticky;
         top: 0;
         z-index: 50;
-        backdrop-filter: blur(10px);
+        backdrop-filter: blur(12px);
       }
 
       .brand {
@@ -209,18 +264,17 @@ function Styles() {
         gap: 10px;
         font-weight: 800;
         font-size: 22px;
-        letter-spacing: -.5px;
       }
 
       .brandMark {
-        width: 36px;
-        height: 36px;
+        width: 38px;
+        height: 38px;
         border-radius: 12px;
         display: grid;
         place-items: center;
         background: #111827;
         color: white;
-        font-size: 17px;
+        font-weight: 800;
       }
 
       .topActions {
@@ -232,18 +286,16 @@ function Styles() {
       .iconBtn {
         width: 40px;
         height: 40px;
-        border: 1px solid #e1e6ee;
-        background: white;
         border-radius: 12px;
+        border: 1px solid #e1e6ed;
+        background: white;
         display: grid;
         place-items: center;
         color: #334155;
-        transition: .18s;
       }
 
       .iconBtn:hover {
         background: #f1f5f9;
-        transform: translateY(-1px);
       }
 
       .mainWrap {
@@ -257,7 +309,7 @@ function Styles() {
         gap: 7px;
         padding: 7px;
         background: white;
-        border: 1px solid #e4e9f1;
+        border: 1px solid #e3e8ef;
         border-radius: 17px;
         margin-bottom: 16px;
         overflow-x: auto;
@@ -270,11 +322,11 @@ function Styles() {
         flex: 1;
         min-width: 90px;
         border: 0;
-        padding: 11px 13px;
+        padding: 11px 14px;
         border-radius: 12px;
         background: transparent;
         color: #64748b;
-        font-weight: 700;
+        font-weight: 800;
         white-space: nowrap;
       }
 
@@ -285,7 +337,7 @@ function Styles() {
 
       .page {
         background: white;
-        border: 1px solid #e3e8f0;
+        border: 1px solid #e3e8ef;
         border-radius: 20px;
         min-height: calc(100vh - 160px);
         overflow: hidden;
@@ -395,9 +447,9 @@ function Styles() {
 
       .authLogo .brandMark {
         margin: auto;
-        width: 52px;
-        height: 52px;
-        font-size: 24px;
+        width: 54px;
+        height: 54px;
+        font-size: 22px;
       }
 
       .authLogo h1 {
@@ -438,7 +490,8 @@ function Styles() {
         gap: 12px;
         padding: 13px 16px;
         border-bottom: 1px solid #f0f2f6;
-        transition: .15s;
+        user-select: none;
+        position: relative;
       }
 
       .chatRow:hover {
@@ -478,24 +531,9 @@ function Styles() {
         white-space: nowrap;
       }
 
-      .chatActions {
-        display: flex;
-        gap: 5px;
-      }
-
-      .miniBtn {
-        width: 32px;
-        height: 32px;
-        border: 1px solid #e3e7ee;
-        background: white;
-        border-radius: 9px;
-        display: grid;
-        place-items: center;
-      }
-
-      .pinOn {
-        background: #fff7ed;
-        border-color: #fed7aa;
+      .pinBadge {
+        font-size: 12px;
+        margin-left: 5px;
       }
 
       /* AVATAR */
@@ -524,6 +562,36 @@ function Styles() {
         width: 100%;
         height: 100%;
         object-fit: cover;
+      }
+
+      /* CONTEXT MENU */
+
+      .contextMenu {
+        position: fixed;
+        z-index: 200;
+        background: white;
+        border: 1px solid #dfe5ec;
+        border-radius: 14px;
+        box-shadow: 0 18px 50px rgba(15,23,42,.18);
+        min-width: 190px;
+        overflow: hidden;
+      }
+
+      .contextMenu button {
+        width: 100%;
+        border: 0;
+        background: white;
+        padding: 13px 15px;
+        text-align: left;
+        font-weight: 700;
+      }
+
+      .contextMenu button:hover {
+        background: #f8fafc;
+      }
+
+      .contextMenu .dangerItem {
+        color: #b91c1c;
       }
 
       /* CHAT WINDOW */
@@ -561,9 +629,7 @@ function Styles() {
         flex: 1;
         overflow-y: auto;
         padding: 18px;
-        background:
-          radial-gradient(circle at 10% 10%, rgba(226,232,240,.4), transparent 25%),
-          #f8fafc;
+        background: #f8fafc;
       }
 
       .messageLine {
@@ -613,87 +679,63 @@ function Styles() {
         opacity: .65;
       }
 
-      .ticks {
+      .tick {
         font-weight: 900;
         letter-spacing: -3px;
         display: inline-block;
-        margin-right: 2px;
       }
 
-      .ticks.seen {
+      .tick.seen {
+        opacity: .38;
         filter: blur(.7px);
-        opacity: .6;
       }
 
-      .messageMenu {
+      .messageActions {
         display: flex;
         gap: 4px;
         margin-top: 5px;
       }
 
-      .messageMenu button {
+      .messageActionBtn {
         border: 0;
-        background: rgba(255,255,255,.15);
+        background: rgba(255,255,255,.1);
         color: inherit;
         border-radius: 7px;
-        padding: 3px 6px;
         font-size: 11px;
-      }
-
-      .messageActionsOutside {
-        display: flex;
-        gap: 3px;
-        align-items: center;
-        margin: 0 5px;
-      }
-
-      .messageActionsOutside button {
-        border: 0;
-        background: transparent;
-        color: #64748b;
+        padding: 4px 6px;
       }
 
       .composer {
         display: flex;
+        align-items: center;
         gap: 7px;
         padding: 10px;
-        border-top: 1px solid #e9edf3;
+        border-top: 1px solid #e5e9ef;
         background: white;
       }
 
-      .composer input[type="text"] {
+      .composer input {
         flex: 1;
-        border: 1px solid #dce2ea;
-        border-radius: 12px;
-        padding: 11px;
-        outline: none;
-        min-width: 0;
       }
 
-      .composerIcon {
-        width: 42px;
-        height: 42px;
-        border-radius: 11px;
-        border: 1px solid #dfe4eb;
+      .circleBtn {
+        width: 40px;
+        height: 40px;
+        border: 1px solid #dfe5ec;
+        border-radius: 50%;
         background: white;
         display: grid;
         place-items: center;
       }
 
-      .sendBtn {
-        width: 44px;
-        height: 42px;
-        border: 0;
-        border-radius: 11px;
-        background: #111827;
-        color: white;
+      .circleBtn.recording {
+        background: #fee2e2;
+        border-color: #fecaca;
       }
 
-      .typing {
-        padding: 5px 18px;
-        font-size: 11px;
-        color: #64748b;
-        background: #f8fafc;
+      .callBtns {
+        display: flex;
+        gap: 5px;
       }
 
       /* PEOPLE */
@@ -702,8 +744,8 @@ function Styles() {
         display: flex;
         align-items: center;
         gap: 12px;
-        padding: 13px 17px;
-        border-bottom: 1px solid #f0f2f6;
+        padding: 13px 16px;
+        border-bottom: 1px solid #eef1f5;
       }
 
       .personInfo {
@@ -715,65 +757,78 @@ function Styles() {
         font-weight: 800;
       }
 
-      .personBio {
+      .personMeta {
         color: #718096;
         font-size: 12px;
         margin-top: 3px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
-      .personActions {
+      .historyHead {
         display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-      }
-
-      .history {
-        padding: 12px 17px;
-        border-bottom: 1px solid #edf0f5;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 18px 8px;
       }
 
       .historyTitle {
-        font-size: 12px;
+        font-weight: 800;
+        font-size: 14px;
+      }
+
+      .historyList {
+        padding-bottom: 5px;
+      }
+
+      .historyRow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 18px;
+        border-bottom: 1px solid #f1f3f6;
+      }
+
+      .historyText {
+        flex: 1;
+        font-size: 14px;
+        color: #475569;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .historyX {
+        width: 28px;
+        height: 28px;
+        border: 0;
+        background: #f1f5f9;
+        border-radius: 50%;
         color: #64748b;
         font-weight: 800;
-        margin-bottom: 7px;
-      }
-
-      .historyItems {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-      }
-
-      .historyChip {
-        border: 1px solid #e2e8f0;
-        background: #f8fafc;
-        border-radius: 20px;
-        padding: 6px 9px;
-        font-size: 12px;
       }
 
       /* STORIES */
 
-      .storyGrid {
+      .storiesGrid {
+        padding: 16px;
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
-        gap: 12px;
-        padding: 17px;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 14px;
       }
 
       .storyCard {
-        height: 235px;
+        position: relative;
+        aspect-ratio: 9 / 14;
         border-radius: 18px;
         overflow: hidden;
-        position: relative;
+        background: #0f172a;
         cursor: pointer;
-        background: #e2e8f0;
-        border: 1px solid #dbe1e9;
       }
 
-      .storyCard img {
+      .storyCard img,
+      .storyCard video {
         width: 100%;
         height: 100%;
         object-fit: cover;
@@ -781,308 +836,252 @@ function Styles() {
 
       .storyOverlay {
         position: absolute;
-        inset: auto 0 0 0;
-        padding: 35px 10px 10px;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 12px;
         color: white;
-        background: linear-gradient(transparent, rgba(0,0,0,.72));
-      }
-
-      .storyName {
-        font-weight: 800;
-        font-size: 13px;
+        background: linear-gradient(
+          transparent 45%,
+          rgba(0,0,0,.7)
+        );
       }
 
       .addStory {
-        height: 235px;
-        border: 2px dashed #cbd5e1;
-        background: #f8fafc;
-        border-radius: 18px;
         display: grid;
         place-items: center;
         text-align: center;
+        border: 2px dashed #cbd5e1;
         color: #475569;
-        cursor: pointer;
+        background: #f8fafc;
       }
 
-      .plus {
-        width: 50px;
-        height: 50px;
-        margin: auto auto 8px;
+      .addStoryPlus {
+        width: 48px;
+        height: 48px;
         border-radius: 50%;
-        display: grid;
-        place-items: center;
         background: #111827;
         color: white;
-        font-size: 28px;
+        display: grid;
+        place-items: center;
+        font-size: 25px;
+        margin-bottom: 8px;
       }
 
-      /* STORY FULL SCREEN */
+      /* FULLSCREEN STORY */
 
       .storyViewer {
         position: fixed;
         inset: 0;
-        z-index: 200;
+        z-index: 500;
         background: rgba(0,0,0,.94);
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 15px;
       }
 
-      .storyViewerClose {
-        position: fixed;
-        top: 18px;
-        right: 18px;
-        width: 42px;
-        height: 42px;
-        border: 0;
-        border-radius: 50%;
-        background: rgba(255,255,255,.15);
-        color: white;
-        font-size: 22px;
-        z-index: 210;
-      }
-
-      .storyFull {
-        height: min(92vh, 800px);
-        aspect-ratio: 9 / 16;
-        max-width: 94vw;
-        border-radius: 20px;
-        overflow: hidden;
+      .storyViewerContent {
+        width: min(430px, 100%);
+        height: 100%;
+        max-height: 850px;
         position: relative;
-        background: #111827;
       }
 
-      .storyFull img {
+      .storyViewerContent img,
+      .storyViewerContent video {
         width: 100%;
         height: 100%;
-        object-fit: cover;
+        object-fit: contain;
       }
 
-      .storyTextOnly {
-        width: 100%;
-        height: 100%;
-        padding: 30px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        color: white;
-        font-size: 25px;
-        font-weight: 700;
-      }
-
-      .storyFullBottom {
+      .storyViewerTop {
         position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        padding: 50px 16px 18px;
+        top: 15px;
+        left: 15px;
+        right: 15px;
+        display: flex;
+        justify-content: space-between;
+        z-index: 2;
         color: white;
-        background: linear-gradient(transparent, rgba(0,0,0,.75));
+      }
+
+      .storyViewerBottom {
+        position: absolute;
+        bottom: 22px;
+        left: 15px;
+        right: 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: white;
+        z-index: 2;
       }
 
       /* SETTINGS */
 
       .settings {
         padding: 18px;
-        display: grid;
-        gap: 18px;
       }
 
-      .profileBox {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        padding: 16px;
-        border: 1px solid #e3e8f0;
-        border-radius: 17px;
-        background: #fafbfc;
+      .profileCenter {
+        text-align: center;
+        margin-bottom: 20px;
       }
 
-      .profileBig {
-        width: 78px;
-        height: 78px;
-        flex: 0 0 78px;
+      .profileLarge {
+        width: 100px;
+        height: 100px;
+        margin: auto;
         border-radius: 50%;
         overflow: hidden;
         background: #e2e8f0;
         display: grid;
         place-items: center;
-        font-size: 25px;
+        font-size: 28px;
         font-weight: 800;
       }
 
-      .profileBig img {
+      .profileLarge img {
         width: 100%;
         height: 100%;
         object-fit: cover;
       }
 
-      .settingsSection {
-        border: 1px solid #e3e8f0;
-        border-radius: 17px;
-        overflow: hidden;
-      }
-
-      .settingsTitle {
-        padding: 13px 15px;
-        background: #f8fafc;
-        font-weight: 800;
-        border-bottom: 1px solid #e8edf3;
-      }
-
-      .settingsBody {
-        padding: 15px;
+      .settingGrid {
         display: grid;
-        gap: 11px;
+        gap: 13px;
+        max-width: 600px;
+        margin: auto;
       }
 
-      .fieldLabel {
+      .settingLabel {
         font-size: 12px;
         color: #64748b;
-        font-weight: 800;
-        margin-bottom: -4px;
+        margin-bottom: 5px;
+        font-weight: 700;
       }
 
       textarea {
+        width: 100%;
+        min-height: 90px;
         resize: vertical;
-        min-height: 80px;
         border: 1px solid #dce2ea;
-        background: #fafbfc;
-        padding: 11px 13px;
         border-radius: 12px;
+        padding: 11px;
         outline: none;
+      }
+
+      .locked {
+        background: #f1f5f9;
+        color: #64748b;
       }
 
       /* CALL */
 
-      .callOverlay {
+      .callModal {
         position: fixed;
         inset: 0;
-        z-index: 180;
-        background: rgba(15,23,42,.94);
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        z-index: 400;
+        background: rgba(15,23,42,.72);
+        display: grid;
+        place-items: center;
         padding: 20px;
       }
 
-      .callPanel {
-        width: min(850px, 100%);
-        max-height: 94vh;
-        overflow: auto;
-        background: #111827;
+      .callCard {
+        width: min(440px, 100%);
+        background: white;
         border-radius: 24px;
-        padding: 20px;
+        padding: 25px;
         text-align: center;
       }
 
-      .callName {
-        font-size: 22px;
-        font-weight: 800;
-        margin-bottom: 5px;
-      }
-
-      .callType {
-        color: #cbd5e1;
-        font-size: 13px;
-        margin-bottom: 15px;
-      }
-
-      .videoArea {
-        position: relative;
-        background: #020617;
-        border-radius: 18px;
+      .callAvatar {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
         overflow: hidden;
-        min-height: 350px;
+        background: #e2e8f0;
+        display: grid;
+        place-items: center;
+        margin: auto auto 14px;
+        font-size: 28px;
+        font-weight: 800;
+      }
+
+      .callAvatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .callActions {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 20px;
+      }
+
+      .callAction {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        border: 0;
+        display: grid;
+        place-items: center;
+        font-size: 20px;
+      }
+
+      .accept {
+        background: #dcfce7;
+      }
+
+      .reject {
+        background: #fee2e2;
+      }
+
+      .activeCall {
+        width: min(850px, 100%);
+        height: min(700px, 90vh);
+        background: #020617;
+        border-radius: 22px;
+        overflow: hidden;
+        position: relative;
       }
 
       .remoteVideo {
         width: 100%;
-        height: 60vh;
-        max-height: 650px;
+        height: 100%;
         object-fit: cover;
         background: #020617;
       }
 
       .localVideo {
         position: absolute;
-        right: 12px;
-        bottom: 12px;
         width: 150px;
         height: 210px;
+        right: 14px;
+        top: 14px;
         object-fit: cover;
-        border-radius: 13px;
-        border: 2px solid rgba(255,255,255,.6);
-        background: #020617;
+        border-radius: 14px;
+        background: #111827;
       }
 
-      .callControls {
+      .activeCallBottom {
+        position: absolute;
+        bottom: 20px;
+        left: 0;
+        right: 0;
         display: flex;
         justify-content: center;
-        gap: 10px;
-        margin-top: 16px;
-      }
-
-      .callControl {
-        width: 50px;
-        height: 50px;
-        border: 0;
-        border-radius: 50%;
-        background: #334155;
-        color: white;
-        font-size: 20px;
-      }
-
-      .callEnd {
-        background: #dc2626;
-      }
-
-      .incomingCard {
-        background: white;
-        color: #172033;
-        padding: 25px;
-        border-radius: 24px;
-        width: min(390px, 100%);
-        text-align: center;
-        box-shadow: 0 25px 80px rgba(0,0,0,.3);
-      }
-
-      .incomingAvatar {
-        margin: 0 auto 12px;
-      }
-
-      .incomingActions {
-        display: flex;
-        gap: 10px;
-        justify-content: center;
-        margin-top: 18px;
-      }
-
-      /* CALL HISTORY */
-
-      .callRow {
-        display: flex;
-        align-items: center;
         gap: 12px;
-        padding: 14px 17px;
-        border-bottom: 1px solid #edf0f5;
-      }
-
-      .callIcon {
-        width: 42px;
-        height: 42px;
-        border-radius: 50%;
-        background: #f1f5f9;
-        display: grid;
-        place-items: center;
       }
 
       /* RESPONSIVE */
 
       @media (max-width: 700px) {
+
         .topbar {
           padding: 0 10px;
         }
@@ -1091,73 +1090,44 @@ function Styles() {
           padding: 8px;
         }
 
-        .nav {
-          top: 70px;
-          border-radius: 14px;
-        }
-
         .page {
           border-radius: 15px;
         }
 
-        .chatPage {
-          height: calc(100vh - 142px);
-          min-height: 500px;
+        .nav {
+          top: 66px;
+          border-radius: 13px;
+          margin-bottom: 8px;
         }
 
         .bubble {
-          max-width: 84%;
+          max-width: 86%;
         }
 
-        .messageMedia {
-          max-width: 230px;
+        .chatPage {
+          height: calc(100vh - 130px);
+          min-height: 520px;
         }
 
-        .storyGrid {
-          grid-template-columns: repeat(2, 1fr);
-          padding: 10px;
+        .storiesGrid {
+          grid-template-columns:
+            repeat(2, minmax(0, 1fr));
         }
 
-        .storyCard,
-        .addStory {
-          height: 260px;
+        .callBtns .circleBtn {
+          width: 36px;
+          height: 36px;
         }
 
-        .personActions {
-          flex-direction: column;
-        }
-
-        .profileBox {
-          align-items: flex-start;
-        }
-
-        .localVideo {
-          width: 105px;
-          height: 150px;
+        .composer {
+          padding: 7px;
         }
       }
+
     `}</style>
   );
 }
 
-/* =========================================================
-   AVATAR
-========================================================= */
-
-function Avatar({ user, small = false }) {
-  const name = safeName(user);
-  const letter = name.charAt(0).toUpperCase();
-
-  return (
-    <div className={`avatar ${small ? "small" : ""}`}>
-      {user?.photoURL ? (
-        <img src={user.photoURL} alt="" />
-      ) : (
-        letter
-      )}
-    </div>
-  );
-}
 
 /* =========================================================
    AUTH
@@ -1165,114 +1135,119 @@ function Avatar({ user, small = false }) {
 
 function Auth() {
   const [mode, setMode] = useState("login");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resetSent, setResetSent] = useState(false);
 
   async function submit(e) {
     e.preventDefault();
+
     setError("");
     setLoading(true);
 
     try {
-      if (mode === "signup") {
-        const cred = await createUserWithEmailAndPassword(
-          auth,
-          email.trim(),
-          password
-        );
-
-        if (name.trim()) {
-          await updateProfile(cred.user, {
-            displayName: name.trim()
-          });
-        }
-
-        await setDoc(
-          doc(db, "users", cred.user.uid),
-          {
-            uid: cred.user.uid,
-            email: email.trim(),
-            name: name.trim(),
-            username: "",
-            phoneNumber: "",
-            bio: "",
-            hobbies: "",
-            photoURL: "",
-            friends: [],
-            friendRequests: [],
-            sentRequests: [],
-            searchHistory: [],
-            createdAt: serverTimestamp()
-          },
-          { merge: true }
-        );
-      } else {
+      if (mode === "login") {
         await signInWithEmailAndPassword(
           auth,
           email.trim(),
           password
         );
+      } else {
+        const result =
+          await createUserWithEmailAndPassword(
+            auth,
+            email.trim(),
+            password
+          );
+
+        await updateProfile(result.user, {
+          displayName: name.trim()
+        });
+
+        await setDoc(
+          doc(db, "users", result.user.uid),
+          {
+            uid: result.user.uid,
+            name: name.trim(),
+            displayName: name.trim(),
+            email: email.trim().toLowerCase(),
+            username: "",
+            phoneNumber: "",
+            bio: "",
+            hobbies: "",
+            photoURL: "",
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          },
+          { merge: true }
+        );
       }
     } catch (err) {
       console.error(err);
-
-      const code = err?.code || "";
-
-      if (code.includes("invalid-credential")) {
-        setError("Email or password is incorrect.");
-      } else if (code.includes("email-already-in-use")) {
-        setError("This email is already registered.");
-      } else if (code.includes("weak-password")) {
-        setError("Password should be at least 6 characters.");
-      } else if (code.includes("invalid-email")) {
-        setError("Please enter a valid email.");
-      } else {
-        setError(err?.message || "Something went wrong.");
-      }
+      setError(
+        err?.message
+          ?.replace("Firebase: Error (auth/", "")
+          ?.replace(").", "") ||
+          "Something went wrong"
+      );
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   async function forgotPassword() {
-    setError("");
-    setResetSent(false);
-
     if (!email.trim()) {
       setError("Enter your email first.");
       return;
     }
 
+    setError("");
+
     try {
-      await sendPasswordResetEmail(auth, email.trim());
-      setResetSent(true);
+      await sendPasswordResetEmail(
+        auth,
+        email.trim()
+      );
+
+      setError(
+        "Password reset link sent to your email."
+      );
     } catch (err) {
-      setError(err?.message || "Could not send reset email.");
+      setError(
+        err?.message || "Unable to send reset email."
+      );
     }
   }
 
   return (
     <div className="authPage">
       <div className="authCard">
+
         <div className="authLogo">
           <div className="brandMark">C</div>
           <h1>Chatdo</h1>
           <div className="subtle">
-            Simple. Social. Connected.
+            Simple social messaging
           </div>
         </div>
 
-        <form className="authForm" onSubmit={submit}>
+        <form
+          className="authForm"
+          onSubmit={submit}
+        >
+
           {mode === "signup" && (
             <input
               className="input"
               placeholder="Your name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) =>
+                setName(e.target.value)
+              }
               required
             />
           )}
@@ -1282,7 +1257,9 @@ function Auth() {
             type="email"
             placeholder="Email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) =>
+              setEmail(e.target.value)
+            }
             required
           />
 
@@ -1291,7 +1268,9 @@ function Auth() {
             type="password"
             placeholder="Password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) =>
+              setPassword(e.target.value)
+            }
             required
           />
 
@@ -1301,26 +1280,16 @@ function Auth() {
             </div>
           )}
 
-          {resetSent && (
-            <div
-              style={{
-                background: "#ecfdf5",
-                color: "#047857",
-                padding: 10,
-                borderRadius: 10,
-                fontSize: 13
-              }}
-            >
-              Password reset email sent.
-            </div>
-          )}
-
-          <button className="primary" disabled={loading}>
+          <button
+            className="primary"
+            type="submit"
+            disabled={loading}
+          >
             {loading
               ? "Please wait..."
               : mode === "login"
-              ? "Login"
-              : "Create account"}
+                ? "Login"
+                : "Create account"}
           </button>
 
           {mode === "login" && (
@@ -1333,42 +1302,39 @@ function Auth() {
             </button>
           )}
 
-          <div
-            style={{
-              textAlign: "center",
-              fontSize: 13,
-              color: "#64748b"
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              setMode(
+                mode === "login"
+                  ? "signup"
+                  : "login"
+              );
+              setError("");
             }}
           >
             {mode === "login"
-              ? "Don't have an account?"
-              : "Already have an account?"}{" "}
-            <button
-              type="button"
-              className="linkBtn"
-              onClick={() => {
-                setMode(mode === "login" ? "signup" : "login");
-                setError("");
-              }}
-            >
-              {mode === "login" ? "Sign up" : "Login"}
-            </button>
-          </div>
+              ? "Create new account"
+              : "Already have an account? Login"}
+          </button>
+
         </form>
       </div>
     </div>
   );
 }
 
+
 /* =========================================================
    PRESENCE
 ========================================================= */
 
-function usePresence(user) {
+function usePresence(uid) {
   useEffect(() => {
-    if (!user) return;
+    if (!uid || !db) return;
 
-    const userRef = doc(db, "users", user.uid);
+    const userRef = doc(db, "users", uid);
 
     updateDoc(userRef, {
       online: true,
@@ -1380,869 +1346,849 @@ function usePresence(user) {
         online: true,
         lastSeen: serverTimestamp()
       }).catch(() => {});
-    }, 60000);
+    }, 30000);
 
-    const offline = () => {
+    return () => {
+      clearInterval(timer);
+
       updateDoc(userRef, {
         online: false,
         lastSeen: serverTimestamp()
       }).catch(() => {});
     };
-
-    window.addEventListener("beforeunload", offline);
-
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener("beforeunload", offline);
-      offline();
-    };
-  }, [user]);
+  }, [uid]);
 }
 
+
 /* =========================================================
-   WEBRTC CALL MANAGER
+   USER PROFILE HOOK
 ========================================================= */
 
-function useCallManager(user) {
-  const [incomingCall, setIncomingCall] = useState(null);
-  const [activeCall, setActiveCall] = useState(null);
-  const [localStream, setLocalStream] = useState(null);
-  const [remoteStream, setRemoteStream] = useState(null);
-  const [muted, setMuted] = useState(false);
-  const [cameraOff, setCameraOff] = useState(false);
-
-  const pcRef = useRef(null);
-  const activeIdRef = useRef(null);
-  const callDocUnsubRef = useRef(null);
-  const candidateUnsubRef = useRef(null);
+function useUserProfile(uid) {
+  const [profile, setProfile] = useState(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!uid || !db) return;
 
-    const q = query(
-      collection(db, "calls"),
-      where("members", "array-contains", user.uid),
-      limit(100)
+    const unsub = onSnapshot(
+      doc(db, "users", uid),
+      (snap) => {
+        setProfile(
+          snap.exists()
+            ? {
+                uid,
+                ...snap.data()
+              }
+            : {
+                uid
+              }
+        );
+      },
+      (err) => {
+        console.error(err);
+      }
     );
-
-    const unsub = onSnapshot(q, (snap) => {
-      const calls = snap.docs
-        .map((d) => ({
-          id: d.id,
-          ...d.data()
-        }))
-        .sort((a, b) => {
-          const at = a.createdAt?.toMillis?.() || 0;
-          const bt = b.createdAt?.toMillis?.() || 0;
-          return bt - at;
-        });
-
-      const incoming = calls.find(
-        (c) =>
-          c.calleeId === user.uid &&
-          c.status === "ringing" &&
-          c.id !== activeIdRef.current
-      );
-
-      setIncomingCall(incoming || null);
-    });
 
     return () => unsub();
-  }, [user]);
+  }, [uid]);
 
-  function cleanup() {
-    try {
-      callDocUnsubRef.current?.();
-    } catch {}
-
-    try {
-      candidateUnsubRef.current?.();
-    } catch {}
-
-    callDocUnsubRef.current = null;
-    candidateUnsubRef.current = null;
-
-    if (pcRef.current) {
-      try {
-        pcRef.current.close();
-      } catch {}
-    }
-
-    pcRef.current = null;
-
-    if (localStream) {
-      localStream.getTracks().forEach((track) => {
-        try {
-          track.stop();
-        } catch {}
-      });
-    }
-
-    setLocalStream(null);
-    setRemoteStream(null);
-    setActiveCall(null);
-    setIncomingCall(null);
-    setMuted(false);
-    setCameraOff(false);
-    activeIdRef.current = null;
-  }
-
-  function makePC(type, role, callId) {
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        {
-          urls: "stun:stun.l.google.com:19302"
-        },
-        {
-          urls: "stun:stun1.l.google.com:19302"
-        }
-      ]
-    });
-
-    pc.ontrack = (event) => {
-      if (event.streams?.[0]) {
-        setRemoteStream(event.streams[0]);
-      }
-    };
-
-    pc.onicecandidate = async (event) => {
-      if (!event.candidate) return;
-
-      const sub =
-        role === "caller"
-          ? "callerCandidates"
-          : "calleeCandidates";
-
-      await addDoc(
-        collection(db, "calls", callId, sub),
-        {
-          candidate: event.candidate.candidate,
-          sdpMid: event.candidate.sdpMid,
-          sdpMLineIndex: event.candidate.sdpMLineIndex,
-          createdAt: serverTimestamp()
-        }
-      );
-    };
-
-    pcRef.current = pc;
-
-    return pc;
-  }
-
-  async function getMedia(type) {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: type === "video"
-    });
-
-    setLocalStream(stream);
-
-    return stream;
-  }
-
-  async function startCall(other, type) {
-    if (!user || !other) return;
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      alert("Your browser does not support calling.");
-      return;
-    }
-
-    if (activeCall) return;
-
-    try {
-      const stream = await getMedia(type);
-
-      const callRef = await addDoc(collection(db, "calls"), {
-        callerId: user.uid,
-        callerName: safeName(user),
-        callerPhoto: user.photoURL || "",
-        calleeId: other.uid,
-        calleeName: safeName(other),
-        calleePhoto: other.photoURL || "",
-        members: [user.uid, other.uid],
-        type,
-        status: "ringing",
-        offer: null,
-        answer: null,
-        createdAt: serverTimestamp()
-      });
-
-      const callId = callRef.id;
-
-      const pc = makePC(type, "caller", callId);
-
-      stream.getTracks().forEach((track) => {
-        pc.addTrack(track, stream);
-      });
-
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      await updateDoc(callRef, {
-        offer: {
-          type: offer.type,
-          sdp: offer.sdp
-        }
-      });
-
-      activeIdRef.current = callId;
-
-      setActiveCall({
-        id: callId,
-        type,
-        other,
-        role: "caller"
-      });
-
-      callDocUnsubRef.current = onSnapshot(
-        callRef,
-        async (snap) => {
-          const data = snap.data();
-
-          if (!data) return;
-
-          if (
-            data.answer &&
-            !pc.currentRemoteDescription
-          ) {
-            try {
-              await pc.setRemoteDescription(
-                new RTCSessionDescription(data.answer)
-              );
-            } catch (e) {
-              console.error(e);
-            }
-          }
-
-          if (
-            ["ended", "rejected"].includes(data.status)
-          ) {
-            cleanup();
-          }
-        }
-      );
-
-      candidateUnsubRef.current = onSnapshot(
-        collection(db, "calls", callId, "calleeCandidates"),
-        (snap) => {
-          snap.docChanges().forEach(async (change) => {
-            if (change.type !== "added") return;
-
-            const data = change.doc.data();
-
-            try {
-              await pc.addIceCandidate(
-                new RTCIceCandidate({
-                  candidate: data.candidate,
-                  sdpMid: data.sdpMid,
-                  sdpMLineIndex: data.sdpMLineIndex
-                })
-              );
-            } catch (e) {
-              console.error(e);
-            }
-          });
-        }
-      );
-    } catch (err) {
-      console.error(err);
-      alert(
-        "Microphone/Camera permission is required for calling."
-      );
-      cleanup();
-    }
-  }
-
-  async function acceptCall(call) {
-    if (!call || !user) return;
-
-    try {
-      const stream = await getMedia(call.type);
-
-      const callRef = doc(db, "calls", call.id);
-
-      const current = await getDoc(callRef);
-      const data = current.data();
-
-      if (!data?.offer) {
-        alert("Call offer is not available.");
-        cleanup();
-        return;
-      }
-
-      const pc = makePC(
-        call.type,
-        "callee",
-        call.id
-      );
-
-      stream.getTracks().forEach((track) => {
-        pc.addTrack(track, stream);
-      });
-
-      await pc.setRemoteDescription(
-        new RTCSessionDescription(data.offer)
-      );
-
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-
-      await updateDoc(callRef, {
-        answer: {
-          type: answer.type,
-          sdp: answer.sdp
-        },
-        status: "active"
-      });
-
-      activeIdRef.current = call.id;
-
-      setIncomingCall(null);
-
-      const other = {
-        uid: call.callerId,
-        name: call.callerName,
-        displayName: call.callerName,
-        photoURL: call.callerPhoto || ""
-      };
-
-      setActiveCall({
-        id: call.id,
-        type: call.type,
-        other,
-        role: "callee"
-      });
-
-      callDocUnsubRef.current = onSnapshot(
-        callRef,
-        (snap) => {
-          const d = snap.data();
-
-          if (
-            d &&
-            ["ended", "rejected"].includes(d.status)
-          ) {
-            cleanup();
-          }
-        }
-      );
-
-      candidateUnsubRef.current = onSnapshot(
-        collection(db, "calls", call.id, "callerCandidates"),
-        (snap) => {
-          snap.docChanges().forEach(async (change) => {
-            if (change.type !== "added") return;
-
-            const candidate = change.doc.data();
-
-            try {
-              await pc.addIceCandidate(
-                new RTCIceCandidate({
-                  candidate: candidate.candidate,
-                  sdpMid: candidate.sdpMid,
-                  sdpMLineIndex: candidate.sdpMLineIndex
-                })
-              );
-            } catch (e) {
-              console.error(e);
-            }
-          });
-        }
-      );
-    } catch (err) {
-      console.error(err);
-
-      try {
-        await updateDoc(doc(db, "calls", call.id), {
-          status: "ended"
-        });
-      } catch {}
-
-      alert(
-        "Microphone/Camera permission is required."
-      );
-
-      cleanup();
-    }
-  }
-
-  async function rejectCall(call) {
-    if (!call) return;
-
-    try {
-      await updateDoc(
-        doc(db, "calls", call.id),
-        {
-          status: "rejected",
-          endedAt: serverTimestamp()
-        }
-      );
-    } catch (e) {
-      console.error(e);
-    }
-
-    setIncomingCall(null);
-  }
-
-  async function hangup() {
-    if (activeCall?.id) {
-      try {
-        await updateDoc(
-          doc(db, "calls", activeCall.id),
-          {
-            status: "ended",
-            endedAt: serverTimestamp()
-          }
-        );
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    cleanup();
-  }
-
-  function toggleMute() {
-    if (!localStream) return;
-
-    localStream.getAudioTracks().forEach((track) => {
-      track.enabled = !track.enabled;
-    });
-
-    setMuted((v) => !v);
-  }
-
-  function toggleCamera() {
-    if (!localStream) return;
-
-    localStream.getVideoTracks().forEach((track) => {
-      track.enabled = !track.enabled;
-    });
-
-    setCameraOff((v) => !v);
-  }
-
-  return {
-    incomingCall,
-    activeCall,
-    localStream,
-    remoteStream,
-    muted,
-    cameraOff,
-    startCall,
-    acceptCall,
-    rejectCall,
-    hangup,
-    toggleMute,
-    toggleCamera
-  };
+  return profile;
 }
 
-/* =========================================================
-   CALL UI
-========================================================= */
-
-function CallUI({
-  manager
-}) {
-  const {
-    incomingCall,
-    activeCall,
-    localStream,
-    remoteStream,
-    muted,
-    cameraOff,
-    acceptCall,
-    rejectCall,
-    hangup,
-    toggleMute,
-    toggleCamera
-  } = manager;
-
-  const localRef = useRef(null);
-  const remoteRef = useRef(null);
-
-  useEffect(() => {
-    if (localRef.current) {
-      localRef.current.srcObject = localStream || null;
-    }
-  }, [localStream]);
-
-  useEffect(() => {
-    if (remoteRef.current) {
-      remoteRef.current.srcObject = remoteStream || null;
-    }
-  }, [remoteStream]);
-
-  if (incomingCall && !activeCall) {
-    return (
-      <div className="callOverlay">
-        <div className="incomingCard">
-          <div className="incomingAvatar">
-            <Avatar
-              user={{
-                displayName: incomingCall.callerName,
-                photoURL: incomingCall.callerPhoto
-              }}
-              small={false}
-            />
-          </div>
-
-          <div className="callName">
-            {incomingCall.callerName}
-          </div>
-
-          <div className="callType">
-            Incoming{" "}
-            {incomingCall.type === "video"
-              ? "video"
-              : "audio"}{" "}
-            call
-          </div>
-
-          <div className="incomingActions">
-            <button
-              className="primary"
-              onClick={() => acceptCall(incomingCall)}
-            >
-              ✓ Accept
-            </button>
-
-            <button
-              className="danger"
-              onClick={() => rejectCall(incomingCall)}
-            >
-              ✕ Reject
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!activeCall) return null;
-
-  return (
-    <div className="callOverlay">
-      <div className="callPanel">
-        <div className="callName">
-          {safeName(activeCall.other)}
-        </div>
-
-        <div className="callType">
-          {activeCall.type === "video"
-            ? "Video call"
-            : "Audio call"}
-        </div>
-
-        {activeCall.type === "video" ? (
-          <div className="videoArea">
-            <video
-              ref={remoteRef}
-              className="remoteVideo"
-              autoPlay
-              playsInline
-            />
-
-            <video
-              ref={localRef}
-              className="localVideo"
-              autoPlay
-              muted
-              playsInline
-            />
-          </div>
-        ) : (
-          <div
-            style={{
-              minHeight: 320,
-              display: "grid",
-              placeItems: "center"
-            }}
-          >
-            <Avatar
-              user={activeCall.other}
-            />
-          </div>
-        )}
-
-        <div className="callControls">
-          <button
-            className="callControl"
-            onClick={toggleMute}
-            title="Mute"
-          >
-            {muted ? "🔇" : "🎤"}
-          </button>
-
-          {activeCall.type === "video" && (
-            <button
-              className="callControl"
-              onClick={toggleCamera}
-              title="Camera"
-            >
-              {cameraOff ? "🚫" : "📹"}
-            </button>
-          )}
-
-          <button
-            className="callControl callEnd"
-            onClick={hangup}
-            title="End call"
-          >
-            ☎
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* =========================================================
-   CHAT MESSAGES HOOK
+   CHAT MESSAGES
 ========================================================= */
 
-function useChatMessages(chatId, user) {
+function useChatMessages(chatId, uid) {
   const [messages, setMessages] = useState([]);
 
   useEffect(() => {
-    if (!chatId || !user) {
+    if (!chatId || !db) {
       setMessages([]);
       return;
     }
 
     const q = query(
-      collection(db, "chats", chatId, "messages"),
-      orderBy("createdAt", "asc"),
-      limit(300)
+      collection(
+        db,
+        "chats",
+        chatId,
+        "messages"
+      ),
+      orderBy("createdAt", "asc")
     );
 
-    const unsub = onSnapshot(q, async (snap) => {
-      const list = snap.docs.map((d) => ({
-        id: d.id,
-        ...d.data()
-      }));
+    const unsub = onSnapshot(
+      q,
+      async (snap) => {
+        const rows = snap.docs.map((d) => ({
+          id: d.id,
+          ...d.data()
+        }));
 
-      setMessages(list);
+        setMessages(rows);
 
-      /* mark incoming messages delivered */
-      const updates = [];
-
-      list.forEach((m) => {
-        if (
-          m.senderId !== user.uid &&
-          !(m.deliveredTo || []).includes(user.uid)
-        ) {
-          updates.push(
+        for (const msg of rows) {
+          if (
+            msg.senderId !== uid &&
+            !(msg.deliveredTo || []).includes(uid)
+          ) {
             updateDoc(
               doc(
                 db,
                 "chats",
                 chatId,
                 "messages",
-                m.id
+                msg.id
               ),
               {
-                deliveredTo: arrayUnion(user.uid)
+                deliveredTo: arrayUnion(uid)
               }
-            ).catch(() => {})
-          );
+            ).catch(() => {});
+          }
         }
-      });
-
-      await Promise.all(updates);
-    });
+      },
+      (err) => {
+        console.error("Message listener:", err);
+      }
+    );
 
     return () => unsub();
-  }, [chatId, user]);
+  }, [chatId, uid]);
 
   return messages;
 }
+
+
+/* =========================================================
+   CALL MANAGER
+========================================================= */
+
+function useCallManager(uid) {
+  const [incoming, setIncoming] = useState(null);
+  const [activeCall, setActiveCall] = useState(null);
+
+  const pcRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const remoteStreamRef = useRef(null);
+
+  const remoteVideoRef = useRef(null);
+  const localVideoRef = useRef(null);
+
+  const unsubCallRef = useRef(null);
+  const unsubCandidatesRef = useRef([]);
+
+  const servers = {
+    iceServers: [
+      {
+        urls: "stun:stun.l.google.com:19302"
+      },
+      {
+        urls: "stun:stun1.l.google.com:19302"
+      }
+    ]
+  };
+
+  async function cleanupCall(callId) {
+    try {
+      localStreamRef.current
+        ?.getTracks()
+        ?.forEach((track) => track.stop());
+    } catch {}
+
+    try {
+      pcRef.current?.close();
+    } catch {}
+
+    localStreamRef.current = null;
+    remoteStreamRef.current = null;
+    pcRef.current = null;
+
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = null;
+    }
+
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null;
+    }
+
+    unsubCallRef.current?.();
+
+    unsubCandidatesRef.current.forEach(
+      (u) => u?.()
+    );
+
+    unsubCandidatesRef.current = [];
+
+    if (callId && db) {
+      try {
+        await updateDoc(
+          doc(db, "calls", callId),
+          {
+            status: "ended",
+            endedAt: serverTimestamp()
+          }
+        );
+      } catch {}
+    }
+
+    setIncoming(null);
+    setActiveCall(null);
+  }
+
+  async function startCall(otherUser, video) {
+    if (!uid || !otherUser?.uid) return;
+
+    const callId =
+      `${uid}_${otherUser.uid}_${Date.now()}`;
+
+    const callRef = doc(db, "calls", callId);
+
+    const pc =
+      new RTCPeerConnection(servers);
+
+    pcRef.current = pc;
+
+    const localStream =
+      await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: video
+      });
+
+    localStreamRef.current = localStream;
+
+    localStream
+      .getTracks()
+      .forEach((track) => {
+        pc.addTrack(track, localStream);
+      });
+
+    const remoteStream =
+      new MediaStream();
+
+    remoteStreamRef.current = remoteStream;
+
+    pc.ontrack = (event) => {
+      event.streams[0]
+        ?.getTracks()
+        ?.forEach((track) => {
+          remoteStream.addTrack(track);
+        });
+
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject =
+          remoteStream;
+      }
+    };
+
+    const callerCandidatesRef =
+      collection(
+        db,
+        "calls",
+        callId,
+        "callerCandidates"
+      );
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        addDoc(
+          callerCandidatesRef,
+          event.candidate.toJSON()
+        ).catch(() => {});
+      }
+    };
+
+    const offer =
+      await pc.createOffer();
+
+    await pc.setLocalDescription(offer);
+
+    await setDoc(callRef, {
+      callerId: uid,
+      calleeId: otherUser.uid,
+      members: [uid, otherUser.uid],
+      callerName: safeName(otherUser),
+      type: video ? "video" : "audio",
+      status: "ringing",
+      offer: {
+        type: offer.type,
+        sdp: offer.sdp
+      },
+      createdAt: serverTimestamp()
+    });
+
+    const unsubscribe =
+      onSnapshot(callRef, async (snap) => {
+        const data = snap.data();
+
+        if (!data) return;
+
+        if (
+          data.answer &&
+          !pc.currentRemoteDescription
+        ) {
+          await pc.setRemoteDescription(
+            new RTCSessionDescription(
+              data.answer
+            )
+          );
+        }
+
+        if (data.status === "ended") {
+          cleanupCall(callId);
+        }
+      });
+
+    unsubCallRef.current = unsubscribe;
+
+    const calleeCandidatesRef =
+      collection(
+        db,
+        "calls",
+        callId,
+        "calleeCandidates"
+      );
+
+    const candidateUnsub =
+      onSnapshot(
+        calleeCandidatesRef,
+        (snap) => {
+          snap.docChanges().forEach(
+            (change) => {
+              if (
+                change.type === "added"
+              ) {
+                pc.addIceCandidate(
+                  new RTCIceCandidate(
+                    change.doc.data()
+                  )
+                ).catch(() => {});
+              }
+            }
+          );
+        }
+      );
+
+    unsubCandidatesRef.current.push(
+      candidateUnsub
+    );
+
+    setActiveCall({
+      callId,
+      otherUser,
+      video,
+      outgoing: true
+    });
+
+    setTimeout(() => {
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject =
+          localStream;
+      }
+
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject =
+          remoteStream;
+      }
+    }, 100);
+  }
+
+  useEffect(() => {
+    if (!uid || !db) return;
+
+    const q = query(
+      collection(db, "calls"),
+      where("calleeId", "==", uid),
+      where("status", "==", "ringing")
+    );
+
+    const unsub = onSnapshot(
+      q,
+      async (snap) => {
+        for (const change of snap.docChanges()) {
+          if (change.type !== "added") continue;
+
+          const data = change.doc.data();
+
+          let otherUser = {
+            uid: data.callerId,
+            name:
+              data.callerName || "User"
+          };
+
+          try {
+            const userSnap =
+              await getDoc(
+                doc(
+                  db,
+                  "users",
+                  data.callerId
+                )
+              );
+
+            if (userSnap.exists()) {
+              otherUser = {
+                uid: data.callerId,
+                ...userSnap.data()
+              };
+            }
+          } catch {}
+
+          setIncoming({
+            callId: change.doc.id,
+            data,
+            otherUser
+          });
+        }
+      }
+    );
+
+    return () => unsub();
+  }, [uid]);
+
+  async function acceptCall(call) {
+    const {
+      callId,
+      data,
+      otherUser
+    } = call;
+
+    const pc =
+      new RTCPeerConnection(servers);
+
+    pcRef.current = pc;
+
+    const video =
+      data.type === "video";
+
+    const localStream =
+      await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video
+      });
+
+    localStreamRef.current =
+      localStream;
+
+    localStream
+      .getTracks()
+      .forEach((track) => {
+        pc.addTrack(track, localStream);
+      });
+
+    const remoteStream =
+      new MediaStream();
+
+    remoteStreamRef.current =
+      remoteStream;
+
+    pc.ontrack = (event) => {
+      event.streams[0]
+        ?.getTracks()
+        ?.forEach((track) => {
+          remoteStream.addTrack(track);
+        });
+
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject =
+          remoteStream;
+      }
+    };
+
+    const calleeCandidatesRef =
+      collection(
+        db,
+        "calls",
+        callId,
+        "calleeCandidates"
+      );
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        addDoc(
+          calleeCandidatesRef,
+          event.candidate.toJSON()
+        ).catch(() => {});
+      }
+    };
+
+    await pc.setRemoteDescription(
+      new RTCSessionDescription(
+        data.offer
+      )
+    );
+
+    const answer =
+      await pc.createAnswer();
+
+    await pc.setLocalDescription(answer);
+
+    await updateDoc(
+      doc(db, "calls", callId),
+      {
+        answer: {
+          type: answer.type,
+          sdp: answer.sdp
+        },
+        status: "active"
+      }
+    );
+
+    const callerCandidatesRef =
+      collection(
+        db,
+        "calls",
+        callId,
+        "callerCandidates"
+      );
+
+    const candidateUnsub =
+      onSnapshot(
+        callerCandidatesRef,
+        (snap) => {
+          snap.docChanges().forEach(
+            (change) => {
+              if (
+                change.type === "added"
+              ) {
+                pc.addIceCandidate(
+                  new RTCIceCandidate(
+                    change.doc.data()
+                  )
+                ).catch(() => {});
+              }
+            }
+          );
+        }
+      );
+
+    unsubCandidatesRef.current.push(
+      candidateUnsub
+    );
+
+    const callRef =
+      doc(db, "calls", callId);
+
+    const unsubscribe =
+      onSnapshot(callRef, (snap) => {
+        const callData =
+          snap.data();
+
+        if (
+          callData?.status === "ended"
+        ) {
+          cleanupCall(callId);
+        }
+      });
+
+    unsubCallRef.current =
+      unsubscribe;
+
+    setIncoming(null);
+
+    setActiveCall({
+      callId,
+      otherUser,
+      video,
+      outgoing: false
+    });
+
+    setTimeout(() => {
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject =
+          localStream;
+      }
+
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject =
+          remoteStream;
+      }
+    }, 100);
+  }
+
+  return {
+    incoming,
+    activeCall,
+    remoteVideoRef,
+    localVideoRef,
+    startCall,
+    acceptCall,
+    hangup: cleanupCall
+  };
+}
+
+
+/* =========================================================
+   CALL UI
+========================================================= */
+
+function CallUI({
+  callManager
+}) {
+  const {
+    incoming,
+    activeCall,
+    remoteVideoRef,
+    localVideoRef,
+    acceptCall,
+    hangup
+  } = callManager;
+
+  if (incoming) {
+    return (
+      <div className="callModal">
+        <div className="callCard">
+
+          <div className="callAvatar">
+            {incoming.otherUser?.photoURL ? (
+              <img
+                src={
+                  incoming.otherUser.photoURL
+                }
+                alt=""
+              />
+            ) : (
+              initials(
+                incoming.otherUser
+              )
+            )}
+          </div>
+
+          <h2>
+            {safeName(
+              incoming.otherUser
+            )}
+          </h2>
+
+          <div className="subtle">
+            Incoming{" "}
+            {incoming.data?.type ===
+            "video"
+              ? "video"
+              : "audio"}{" "}
+            call
+          </div>
+
+          <div className="callActions">
+
+            <button
+              className="callAction reject"
+              onClick={() =>
+                hangup(
+                  incoming.callId
+                )
+              }
+            >
+              ✕
+            </button>
+
+            <button
+              className="callAction accept"
+              onClick={() =>
+                acceptCall(
+                  incoming
+                )
+              }
+            >
+              ✓
+            </button>
+
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!activeCall) {
+    return null;
+  }
+
+  return (
+    <div className="callModal">
+
+      <div className="activeCall">
+
+        <video
+          ref={remoteVideoRef}
+          className="remoteVideo"
+          autoPlay
+          playsInline
+        />
+
+        {activeCall.video && (
+          <video
+            ref={localVideoRef}
+            className="localVideo"
+            autoPlay
+            muted
+            playsInline
+          />
+        )}
+
+        {!activeCall.video && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "grid",
+              placeItems: "center",
+              color: "white",
+              fontSize: 24,
+              fontWeight: 800
+            }}
+          >
+            {safeName(
+              activeCall.otherUser
+            )}
+          </div>
+        )}
+
+        <div className="activeCallBottom">
+
+          <button
+            className="callAction reject"
+            onClick={() =>
+              hangup(
+                activeCall.callId
+              )
+            }
+          >
+            ☎
+          </button>
+
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 
 /* =========================================================
    CHAT
 ========================================================= */
 
 function Chat({
-  user,
-  other,
-  chat,
+  uid,
+  otherUser,
   onBack,
   onStartCall
 }) {
-  const chatId = chat?.id || chatIdFor(user.uid, other.uid);
+  const chatId =
+    chatIdFor(uid, otherUser.uid);
 
-  const messages = useChatMessages(chatId, user);
+  const messages =
+    useChatMessages(
+      chatId,
+      uid
+    );
 
   const [text, setText] = useState("");
-  const [file, setFile] = useState(null);
-  const [editing, setEditing] = useState(null);
-  const [typing, setTyping] = useState(false);
-  const [recording, setRecording] = useState(false);
+  const [editing, setEditing] =
+    useState(null);
 
-  const messagesRef = useRef(null);
-  const typingTimer = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const recordedChunksRef = useRef([]);
+  const [recording, setRecording] =
+    useState(false);
+
+  const mediaRecorderRef =
+    useRef(null);
+
+  const chunksRef =
+    useRef([]);
+
+  const messagesRef =
+    useRef(null);
+
+  const fileInputRef =
+    useRef(null);
+
+  const videoInputRef =
+    useRef(null);
 
   useEffect(() => {
-    const el = messagesRef.current;
-    if (!el) return;
+    const box =
+      messagesRef.current;
 
-    el.scrollTop = el.scrollHeight;
+    if (!box) return;
+
+    box.scrollTop =
+      box.scrollHeight;
   }, [messages.length]);
 
   useEffect(() => {
-    if (!chatId) return;
+    markSeen();
+  }, [messages.length]);
 
-    const chatRef = doc(db, "chats", chatId);
+  async function ensureChat() {
+    const chatRef =
+      doc(db, "chats", chatId);
 
-    updateDoc(chatRef, {
-      [`typing.${user.uid}`]: false
-    }).catch(() => {});
+    const snap =
+      await getDoc(chatRef);
 
-    return () => {
-      updateDoc(chatRef, {
-        [`typing.${user.uid}`]: false
-      }).catch(() => {});
-    };
-  }, [chatId, user.uid]);
+    if (!snap.exists()) {
+      await setDoc(chatRef, {
+        members: [
+          uid,
+          otherUser.uid
+        ],
+        createdAt:
+          serverTimestamp(),
+        updatedAt:
+          serverTimestamp(),
+        lastMessage: null,
+        pinnedBy: [],
+        hiddenBy: [],
+        deletedBy: []
+      });
+    }
 
-  useEffect(() => {
-    if (!chatId) return;
-
-    const unsub = onSnapshot(
-      doc(db, "chats", chatId),
-      (snap) => {
-        const data = snap.data();
-
-        const otherTyping =
-          data?.typing?.[other.uid] || false;
-
-        setTyping(otherTyping);
-      }
-    );
-
-    return () => unsub();
-  }, [chatId, other.uid]);
+    return chatRef;
+  }
 
   async function markSeen() {
-    const unseen = messages.filter(
-      (m) =>
-        m.senderId !== user.uid &&
-        !(m.seenBy || []).includes(user.uid)
-    );
+    if (!db || !uid) return;
 
-    await Promise.all(
-      unseen.map((m) =>
+    for (const message of messages) {
+      if (
+        message.senderId !== uid &&
+        !(message.seenBy || []).includes(uid)
+      ) {
         updateDoc(
           doc(
             db,
             "chats",
             chatId,
             "messages",
-            m.id
+            message.id
           ),
           {
-            seenBy: arrayUnion(user.uid),
-            deliveredTo: arrayUnion(user.uid)
+            seenBy: arrayUnion(uid),
+            deliveredTo:
+              arrayUnion(uid)
           }
-        ).catch(() => {})
-      )
-    );
-  }
-
-  useEffect(() => {
-    markSeen();
-  }, [messages.length]);
-
-  async function uploadFile(selectedFile) {
-    if (!selectedFile) return null;
-
-    const safeName =
-      selectedFile.name.replace(/[^\w.-]/g, "_");
-
-    const path =
-      `chatMedia/${chatId}/${Date.now()}_${safeName}`;
-
-    const storageRef = ref(storage, path);
-
-    await uploadBytes(storageRef, selectedFile);
-
-    return await getDownloadURL(storageRef);
-  }
-
-  async function sendMessage(type, url = "") {
-    const value = text.trim();
-
-    if (!value && !url) return;
-
-    const messageRef = collection(
-      db,
-      "chats",
-      chatId,
-      "messages"
-    );
-
-    await addDoc(messageRef, {
-      senderId: user.uid,
-      senderName: safeName(user),
-      text: type === "text" ? value : "",
-      type,
-      url,
-      createdAt: serverTimestamp(),
-      deliveredTo: [],
-      seenBy: [],
-      edited: false,
-      likes: []
-    });
-
-    await setDoc(
-      doc(db, "chats", chatId),
-      {
-        members: [user.uid, other.uid],
-        lastMessage: {
-          text: type === "text"
-            ? value
-            : formatMessagePreview({ type }),
-          type,
-          senderId: user.uid
-        },
-        updatedAt: serverTimestamp(),
-        pinnedBy: chat?.pinnedBy || [],
-        hiddenBy: chat?.hiddenBy || [],
-        deletedBy: arrayRemove(user.uid),
-        [`typing.${user.uid}`]: false
-      },
-      { merge: true }
-    );
-
-    setText("");
-    setFile(null);
-  }
-
-  async function sendTextOrFile() {
-    if (file) {
-      try {
-        const url = await uploadFile(file);
-
-        let type = "image";
-
-        if (file.type.startsWith("video/")) {
-          type = "video";
-        } else if (file.type.startsWith("audio/")) {
-          type = "audio";
-        }
-
-        await sendMessage(type, url);
-      } catch (e) {
-        console.error(e);
-        alert("File upload failed.");
+        ).catch(() => {});
       }
+    }
+  }
 
+  async function sendMessage(
+    customText = text,
+    type = "text",
+    mediaUrl = ""
+  ) {
+    const value =
+      customText.trim();
+
+    if (
+      type === "text" &&
+      !value
+    ) {
       return;
     }
+
+    await ensureChat();
 
     if (editing) {
       await updateDoc(
@@ -2254,100 +2200,114 @@ function Chat({
           editing.id
         ),
         {
-          text: text.trim(),
-          edited: true
+          text: value,
+          edited: true,
+          updatedAt:
+            serverTimestamp()
         }
       );
 
       setEditing(null);
       setText("");
+
       return;
     }
 
-    await sendMessage("text");
-  }
+    const messageData = {
+      senderId: uid,
+      text:
+        type === "text"
+          ? value
+          : "",
+      type,
+      mediaUrl,
+      createdAt:
+        serverTimestamp(),
+      deliveredTo: [],
+      seenBy: [],
+      likes: []
+    };
 
-  async function toggleTyping(value) {
-    setText(value);
+    await addDoc(
+      collection(
+        db,
+        "chats",
+        chatId,
+        "messages"
+      ),
+      messageData
+    );
 
     await updateDoc(
       doc(db, "chats", chatId),
       {
-        [`typing.${user.uid}`]: !!value
+        members: [
+          uid,
+          otherUser.uid
+        ],
+        updatedAt:
+          serverTimestamp(),
+        lastMessage:
+          messageData
       }
-    ).catch(() => {});
+    );
 
-    clearTimeout(typingTimer.current);
-
-    typingTimer.current = setTimeout(() => {
-      updateDoc(
-        doc(db, "chats", chatId),
-        {
-          [`typing.${user.uid}`]: false
-        }
-      ).catch(() => {});
-    }, 1800);
+    setText("");
   }
 
-  async function toggleLike(message) {
-    const liked = (message.likes || []).includes(
-      user.uid
-    );
+  async function uploadMedia(
+    file,
+    type
+  ) {
+    if (!file) return;
 
-    await updateDoc(
-      doc(
-        db,
-        "chats",
-        chatId,
-        "messages",
-        message.id
-      ),
-      {
-        likes: liked
-          ? arrayRemove(user.uid)
-          : arrayUnion(user.uid)
-      }
-    );
-  }
+    if (!storage) {
+      alert(
+        "Firebase Storage is not enabled yet. Upgrade/setup Storage first."
+      );
+      return;
+    }
 
-  async function deleteForMe(message) {
-    await updateDoc(
-      doc(
-        db,
-        "chats",
-        chatId,
-        "messages",
-        message.id
-      ),
-      {
-        deletedFor: arrayUnion(user.uid)
-      }
-    );
-  }
+    try {
+      const path =
+        `chatMedia/${chatId}/${Date.now()}_${file.name}`;
 
-  async function deleteForEveryone(message) {
-    if (message.senderId !== user.uid) return;
+      const storageRef =
+        ref(storage, path);
 
-    await updateDoc(
-      doc(
-        db,
-        "chats",
-        chatId,
-        "messages",
-        message.id
-      ),
-      {
-        deletedEveryone: true,
-        text: "This message was deleted.",
-        url: "",
-        type: "text"
-      }
-    );
+      await uploadBytes(
+        storageRef,
+        file
+      );
+
+      const url =
+        await getDownloadURL(
+          storageRef
+        );
+
+      await sendMessage(
+        "",
+        type,
+        url
+      );
+    } catch (error) {
+      console.error(error);
+      alert(
+        "Upload failed. Please check Firebase Storage."
+      );
+    }
   }
 
   async function startRecording() {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      alert("Audio recording is not supported.");
+    if (recording) {
+      mediaRecorderRef.current?.stop();
+      return;
+    }
+
+    if (!navigator.mediaDevices) {
+      alert(
+        "Microphone is not available."
+      );
       return;
     }
 
@@ -2360,91 +2320,179 @@ function Chat({
       const recorder =
         new MediaRecorder(stream);
 
-      recordedChunksRef.current = [];
+      chunksRef.current = [];
 
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          recordedChunksRef.current.push(
-            event.data
-          );
-        }
-      };
+      recorder.ondataavailable =
+        (event) => {
+          if (event.data.size) {
+            chunksRef.current.push(
+              event.data
+            );
+          }
+        };
 
-      recorder.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
+      recorder.onstop =
+        async () => {
+          stream
+            .getTracks()
+            .forEach((track) =>
+              track.stop()
+            );
 
-        const blob = new Blob(
-          recordedChunksRef.current,
-          { type: "audio/webm" }
-        );
+          const blob =
+            new Blob(
+              chunksRef.current,
+              {
+                type:
+                  "audio/webm"
+              }
+            );
 
-        const audioFile = new File(
-          [blob],
-          `voice_${Date.now()}.webm`,
-          { type: "audio/webm" }
-        );
+          if (!storage) {
+            alert(
+              "Storage is not enabled yet."
+            );
+            return;
+          }
 
-        try {
-          const url = await uploadFile(audioFile);
-          await sendMessage("audio", url);
-        } catch (e) {
-          console.error(e);
-          alert("Voice message upload failed.");
-        }
-      };
+          try {
+            const path =
+              `chatMedia/${chatId}/voice_${Date.now()}.webm`;
 
-      mediaRecorderRef.current = recorder;
+            const storageRef =
+              ref(storage, path);
+
+            await uploadBytes(
+              storageRef,
+              blob
+            );
+
+            const url =
+              await getDownloadURL(
+                storageRef
+              );
+
+            await sendMessage(
+              "",
+              "audio",
+              url
+            );
+          } catch (error) {
+            console.error(error);
+            alert(
+              "Voice upload failed."
+            );
+          }
+        };
+
+      mediaRecorderRef.current =
+        recorder;
+
       recorder.start();
+
       setRecording(true);
-    } catch (e) {
-      console.error(e);
-      alert("Microphone permission is required.");
+
+      recorder.onstop =
+        ((originalStop) => async (...args) => {
+          setRecording(false);
+
+          if (originalStop) {
+            await originalStop(...args);
+          }
+        })(recorder.onstop);
+    } catch (error) {
+      console.error(error);
+      alert(
+        "Microphone permission is required."
+      );
     }
   }
 
-  function stopRecording() {
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state !== "inactive"
-    ) {
-      mediaRecorderRef.current.stop();
-    }
-
-    setRecording(false);
-  }
-
-  function renderTicks(message) {
-    const status = messageStatus(
-      message,
-      user.uid
+  async function deleteForMe(message) {
+    await updateDoc(
+      doc(
+        db,
+        "chats",
+        chatId,
+        "messages",
+        message.id
+      ),
+      {
+        deletedFor:
+          arrayUnion(uid)
+      }
     );
+  }
 
-    if (status === "seen") {
-      return (
-        <span className="ticks seen">
-          ✓✓
-        </span>
-      );
+  async function deleteForEveryone(
+    message
+  ) {
+    if (
+      message.senderId !== uid
+    ) {
+      return;
     }
 
-    if (status === "delivered") {
-      return (
-        <span className="ticks">
-          ✓✓
-        </span>
-      );
+    await updateDoc(
+      doc(
+        db,
+        "chats",
+        chatId,
+        "messages",
+        message.id
+      ),
+      {
+        text:
+          "This message was deleted",
+        type: "text",
+        mediaUrl: "",
+        deleted: true
+      }
+    );
+  }
+
+  async function toggleLike(message) {
+    const likes =
+      message.likes || [];
+
+    const liked =
+      likes.includes(uid);
+
+    await updateDoc(
+      doc(
+        db,
+        "chats",
+        chatId,
+        "messages",
+        message.id
+      ),
+      {
+        likes: liked
+          ? arrayRemove(uid)
+          : arrayUnion(uid)
+      }
+    );
+  }
+
+  function editMessage(message) {
+    if (
+      message.senderId !== uid ||
+      message.deleted
+    ) {
+      return;
     }
 
-    return (
-      <span className="ticks">
-        ✓
-      </span>
+    setEditing(message);
+    setText(
+      message.text || ""
     );
   }
 
   return (
     <div className="chatPage">
+
       <div className="chatHeader">
+
         <button
           className="iconBtn"
           onClick={onBack}
@@ -2452,303 +2500,294 @@ function Chat({
           ←
         </button>
 
-        <Avatar user={other} small />
+        <div className="avatar small">
+          {otherUser.photoURL ? (
+            <img
+              src={
+                otherUser.photoURL
+              }
+              alt=""
+            />
+          ) : (
+            initials(otherUser)
+          )}
+        </div>
 
         <div className="chatHeaderInfo">
           <div className="chatHeaderName">
-            {safeName(other)}
+            {safeName(otherUser)}
           </div>
 
           <div className="chatHeaderStatus">
-            {other.online
+            {otherUser.online
               ? "online"
-              : other.lastSeen
-              ? `last seen ${dateTimeText(
-                  other.lastSeen
-                )}`
               : "offline"}
           </div>
         </div>
 
-        <button
-          className="iconBtn"
-          title="Audio call"
-          onClick={() =>
-            onStartCall(other, "audio")
-          }
-        >
-          ☎
-        </button>
+        <div className="callBtns">
 
-        <button
-          className="iconBtn"
-          title="Video call"
-          onClick={() =>
-            onStartCall(other, "video")
-          }
-        >
-          📹
-        </button>
+          <button
+            className="circleBtn"
+            title="Audio call"
+            onClick={() =>
+              onStartCall(
+                otherUser,
+                false
+              )
+            }
+          >
+            ☎
+          </button>
+
+          <button
+            className="circleBtn"
+            title="Video call"
+            onClick={() =>
+              onStartCall(
+                otherUser,
+                true
+              )
+            }
+          >
+            ▣
+          </button>
+
+        </div>
+
       </div>
+
 
       <div
         className="messages"
         ref={messagesRef}
-        onClick={markSeen}
       >
+
         {messages
           .filter(
             (m) =>
-              !(m.deletedFor || []).includes(
-                user.uid
-              )
+              !(m.deletedFor || [])
+                .includes(uid)
           )
-          .map((m) => {
+          .map((message) => {
+
             const mine =
-              m.senderId === user.uid;
+              message.senderId === uid;
+
+            const status =
+              messageStatus(
+                message,
+                uid
+              );
 
             return (
               <div
-                key={m.id}
-                className={`messageLine ${
-                  mine ? "mine" : ""
-                }`}
+                key={message.id}
+                className={
+                  "messageLine " +
+                  (mine
+                    ? "mine"
+                    : "")
+                }
               >
-                {!mine && (
-                  <div
-                    style={{
-                      alignSelf: "flex-end",
-                      marginRight: 5
-                    }}
-                  >
-                    <Avatar
-                      user={other}
-                      small
-                    />
-                  </div>
-                )}
 
                 <div className="bubble">
-                  {m.deletedEveryone ? (
+
+                  {message.type ===
+                    "image" &&
+                    message.mediaUrl && (
+                      <img
+                        className="messageMedia"
+                        src={
+                          message.mediaUrl
+                        }
+                        alt=""
+                      />
+                    )}
+
+                  {message.type ===
+                    "video" &&
+                    message.mediaUrl && (
+                      <video
+                        className="messageMedia"
+                        src={
+                          message.mediaUrl
+                        }
+                        controls
+                      />
+                    )}
+
+                  {message.type ===
+                    "audio" &&
+                    message.mediaUrl && (
+                      <audio
+                        src={
+                          message.mediaUrl
+                        }
+                        controls
+                      />
+                    )}
+
+                  {message.text && (
                     <div
-                      style={{
-                        opacity: .6,
-                        fontStyle: "italic"
-                      }}
+                      className="bubbleText"
                     >
-                      This message was deleted.
+                      {message.text}
                     </div>
-                  ) : (
-                    <>
-                      {m.type === "text" && (
-                        <div className="bubbleText">
-                          {m.text}
-                        </div>
-                      )}
-
-                      {m.type === "image" &&
-                        m.url && (
-                          <img
-                            className="messageMedia"
-                            src={m.url}
-                            alt=""
-                          />
-                        )}
-
-                      {m.type === "video" &&
-                        m.url && (
-                          <video
-                            className="messageMedia"
-                            src={m.url}
-                            controls
-                          />
-                        )}
-
-                      {m.type === "audio" &&
-                        m.url && (
-                          <audio
-                            src={m.url}
-                            controls
-                            style={{
-                              maxWidth: "250px"
-                            }}
-                          />
-                        )}
-                    </>
                   )}
 
                   <div className="messageMeta">
-                    {m.edited && (
-                      <span>edited</span>
-                    )}
 
                     <span>
-                      {timeText(m.createdAt)}
+                      {timeText(
+                        message.createdAt
+                      )}
                     </span>
 
-                    {mine &&
-                      renderTicks(m)}
+                    {message.edited &&
+                      !message.deleted && (
+                        <span>
+                          edited
+                        </span>
+                      )}
 
-                    {(m.likes || []).length > 0 && (
-                      <span>❤️</span>
+                    {mine && (
+                      <span
+                        className={
+                          "tick " +
+                          (status ===
+                          "seen"
+                            ? "seen"
+                            : "")
+                        }
+                      >
+                        {status ===
+                        "sent"
+                          ? "✓"
+                          : "✓✓"}
+                      </span>
                     )}
+
                   </div>
 
-                  <div className="messageMenu">
+                  <div className="messageActions">
+
                     <button
+                      className="messageActionBtn"
                       onClick={() =>
-                        toggleLike(m)
+                        toggleLike(
+                          message
+                        )
                       }
                     >
-                      {(m.likes || []).includes(
-                        user.uid
-                      )
+                      {(message.likes ||
+                        []).includes(uid)
                         ? "♥"
                         : "♡"}
                     </button>
 
                     {mine &&
-                      m.type === "text" &&
-                      !m.deletedEveryone && (
+                      !message.deleted && (
                         <button
-                          onClick={() => {
-                            setEditing(m);
-                            setText(
-                              m.text || ""
-                            );
-                          }}
+                          className="messageActionBtn"
+                          onClick={() =>
+                            editMessage(
+                              message
+                            )
+                          }
                         >
                           Edit
                         </button>
                       )}
 
                     <button
+                      className="messageActionBtn"
                       onClick={() =>
-                        deleteForMe(m)
+                        deleteForMe(
+                          message
+                        )
                       }
                     >
                       Delete
                     </button>
 
                     {mine &&
-                      !m.deletedEveryone && (
+                      !message.deleted && (
                         <button
+                          className="messageActionBtn"
                           onClick={() =>
-                            deleteForEveryone(m)
+                            deleteForEveryone(
+                              message
+                            )
                           }
                         >
-                          Delete all
+                          Everyone
                         </button>
                       )}
+
                   </div>
+
                 </div>
+
               </div>
             );
           })}
 
-        {messages.length === 0 && (
-          <div className="empty">
-            Start your conversation 👋
-          </div>
-        )}
       </div>
 
-      {typing && (
-        <div className="typing">
-          {safeName(other)} is typing...
-        </div>
-      )}
-
-      {editing && (
-        <div
-          style={{
-            padding: "7px 12px",
-            background: "#fff7ed",
-            color: "#9a3412",
-            fontSize: 12,
-            display: "flex",
-            justifyContent: "space-between"
-          }}
-        >
-          <span>Editing message</span>
-
-          <button
-            className="linkBtn"
-            onClick={() => {
-              setEditing(null);
-              setText("");
-            }}
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-
-      {recording && (
-        <div
-          style={{
-            padding: "7px 12px",
-            background: "#fee2e2",
-            color: "#b91c1c",
-            fontSize: 12,
-            textAlign: "center"
-          }}
-        >
-          🔴 Recording... release/press 🎤 to stop
-        </div>
-      )}
-
-      {file && (
-        <div
-          style={{
-            padding: "7px 12px",
-            background: "#f1f5f9",
-            fontSize: 12
-          }}
-        >
-          📎 {file.name}
-          <button
-            className="linkBtn"
-            style={{ marginLeft: 8 }}
-            onClick={() => setFile(null)}
-          >
-            Remove
-          </button>
-        </div>
-      )}
 
       <div className="composer">
-        <label
-          className="composerIcon"
-          title="Attach image/video/audio"
-        >
-          📎
-          <input
-            type="file"
-            accept="image/*,video/*,audio/*"
-            hidden
-            onChange={(e) =>
-              setFile(
-                e.target.files?.[0] || null
-              )
-            }
-          />
-        </label>
 
         <button
-          className="composerIcon"
-          title="Voice recorder"
-          onClick={
-            recording
-              ? stopRecording
-              : startRecording
+          className="circleBtn"
+          title="Photo"
+          onClick={() =>
+            fileInputRef.current?.click()
           }
         >
-          {recording ? "⏹" : "🎤"}
+          ＋
         </button>
 
         <input
-          type="text"
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => {
+            uploadMedia(
+              e.target.files?.[0],
+              "image"
+            );
+            e.target.value = "";
+          }}
+        />
+
+        <input
+          ref={videoInputRef}
+          type="file"
+          accept="video/*"
+          hidden
+          onChange={(e) => {
+            uploadMedia(
+              e.target.files?.[0],
+              "video"
+            );
+            e.target.value = "";
+          }}
+        />
+
+        <button
+          className="circleBtn"
+          title="Video"
+          onClick={() =>
+            videoInputRef.current?.click()
+          }
+        >
+          ▷
+        </button>
+
+        <input
+          className="input"
           placeholder={
             editing
               ? "Edit message..."
@@ -2756,828 +2795,1178 @@ function Chat({
           }
           value={text}
           onChange={(e) =>
-            toggleTyping(e.target.value)
+            setText(e.target.value)
           }
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              sendTextOrFile();
+            if (
+              e.key === "Enter" &&
+              !e.shiftKey
+            ) {
+              e.preventDefault();
+              sendMessage();
             }
           }}
         />
 
         <button
-          className="sendBtn"
-          onClick={sendTextOrFile}
+          className={
+            "circleBtn " +
+            (recording
+              ? "recording"
+              : "")
+          }
+          title="Voice recorder"
+          onClick={startRecording}
         >
-          ➤
+          🎤
         </button>
+
+        <button
+          className="primary"
+          onClick={() =>
+            sendMessage()
+          }
+        >
+          {editing ? "Save" : "Send"}
+        </button>
+
       </div>
+
     </div>
   );
 }
 
+
 /* =========================================================
-   CHATS LIST
+   CHATS
 ========================================================= */
 
 function Chats({
-  user,
-  users,
-  onOpenChat,
-  onStartCall
+  uid,
+  onOpenChat
 }) {
-  const [chats, setChats] = useState([]);
+  const [chats, setChats] =
+    useState([]);
+
+  const [users, setUsers] =
+    useState({});
+
+  const [context, setContext] =
+    useState(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!uid || !db) return;
 
     const q = query(
       collection(db, "chats"),
       where(
         "members",
         "array-contains",
-        user.uid
-      ),
-      limit(100)
+        uid
+      )
     );
 
-    const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map((d) => ({
-        id: d.id,
-        ...d.data()
-      }));
+    const unsub = onSnapshot(
+      q,
+      async (snap) => {
+        const rows =
+          snap.docs.map((d) => ({
+            id: d.id,
+            ...d.data()
+          }));
 
-      list.sort((a, b) => {
-        const ap =
-          (a.pinnedBy || []).includes(user.uid)
-            ? 1
-            : 0;
+        setChats(rows);
 
-        const bp =
-          (b.pinnedBy || []).includes(user.uid)
-            ? 1
-            : 0;
+        const map = {};
 
-        if (ap !== bp) return bp - ap;
+        for (const chat of rows) {
+          const other =
+            otherMember(
+              chat,
+              uid
+            );
 
-        const at =
-          a.updatedAt?.toMillis?.() || 0;
+          if (!other) continue;
 
-        const bt =
-          b.updatedAt?.toMillis?.() || 0;
+          try {
+            const snapUser =
+              await getDoc(
+                doc(
+                  db,
+                  "users",
+                  other
+                )
+              );
 
-        return bt - at;
-      });
+            if (snapUser.exists()) {
+              map[other] = {
+                uid: other,
+                ...snapUser.data()
+              };
+            }
+          } catch {}
+        }
 
-      setChats(list);
-    });
+        setUsers(map);
+      }
+    );
 
     return () => unsub();
-  }, [user]);
+  }, [uid]);
 
-  const visible = chats.filter(
-    (c) =>
-      !(c.hiddenBy || []).includes(user.uid) &&
-      !(c.deletedBy || []).includes(user.uid)
-  );
+  const visibleChats =
+    useMemo(() => {
+      return chats
+        .filter(
+          (chat) =>
+            !(chat.hiddenBy || [])
+              .includes(uid) &&
+            !(chat.deletedBy || [])
+              .includes(uid)
+        )
+        .sort((a, b) => {
 
-  async function pinChat(chat) {
-    const pinned = chats.filter((c) =>
-      (c.pinnedBy || []).includes(user.uid)
-    );
+          const ap =
+            (a.pinnedBy || [])
+              .includes(uid);
 
-    const isPinned =
-      (chat.pinnedBy || []).includes(
-        user.uid
-      );
+          const bp =
+            (b.pinnedBy || [])
+              .includes(uid);
 
-    if (!isPinned && pinned.length >= 10) {
-      alert("Maximum 10 chats can be pinned.");
-      return;
+          if (ap !== bp) {
+            return ap ? -1 : 1;
+          }
+
+          return (
+            getMillis(b.updatedAt) -
+            getMillis(a.updatedAt)
+          );
+        });
+    }, [chats, uid]);
+
+  async function togglePin(chat) {
+    const pinned =
+      (chat.pinnedBy || [])
+        .includes(uid);
+
+    if (!pinned) {
+      const count =
+        chats.filter((c) =>
+          (c.pinnedBy || [])
+            .includes(uid)
+        ).length;
+
+      if (count >= 10) {
+        alert(
+          "Maximum 10 chats can be pinned."
+        );
+        return;
+      }
     }
 
-    await updateDoc(doc(db, "chats", chat.id), {
-      pinnedBy: isPinned
-        ? arrayRemove(user.uid)
-        : arrayUnion(user.uid)
-    });
+    await updateDoc(
+      doc(db, "chats", chat.id),
+      {
+        pinnedBy: pinned
+          ? arrayRemove(uid)
+          : arrayUnion(uid)
+      }
+    );
+
+    setContext(null);
   }
 
   async function hideChat(chat) {
-    await updateDoc(doc(db, "chats", chat.id), {
-      hiddenBy: arrayUnion(user.uid)
-    });
+    await updateDoc(
+      doc(db, "chats", chat.id),
+      {
+        hiddenBy:
+          arrayUnion(uid)
+      }
+    );
+
+    setContext(null);
   }
 
   async function deleteChat(chat) {
-    const ok = window.confirm(
-      "Delete this chat for you?"
+    await updateDoc(
+      doc(db, "chats", chat.id),
+      {
+        deletedBy:
+          arrayUnion(uid)
+      }
     );
 
-    if (!ok) return;
+    setContext(null);
+  }
 
-    await updateDoc(doc(db, "chats", chat.id), {
-      deletedBy: arrayUnion(user.uid)
+  function longPress(
+    event,
+    chat
+  ) {
+    event.preventDefault();
+
+    const x =
+      Math.min(
+        event.clientX || 150,
+        window.innerWidth - 210
+      );
+
+    const y =
+      Math.min(
+        event.clientY || 150,
+        window.innerHeight - 220
+      );
+
+    setContext({
+      chat,
+      x,
+      y
     });
   }
 
   return (
-    <div className="page">
-      <div className="pageHead">
-        <div>
-          <div className="pageTitle">
-            Chats
-          </div>
-          <div className="subtle">
-            Recent chats appear first
+    <>
+      <div className="page">
+
+        <div className="pageHead">
+          <div>
+            <div className="pageTitle">
+              Chats
+            </div>
+
+            <div className="subtle">
+              Recent chats
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="chatList">
-        {visible.map((chat) => {
-          const otherId = otherMember(
-            chat,
-            user.uid
-          );
-
-          const other =
-            users.find((u) => u.uid === otherId) ||
-            {
-              uid: otherId,
-              displayName:
-                chat.lastMessage?.senderId ===
-                user.uid
-                  ? "Friend"
-                  : "User"
-            };
-
-          const pinned =
-            (chat.pinnedBy || []).includes(
-              user.uid
-            );
-
-          return (
-            <div
-              key={chat.id}
-              className="chatRow"
-            >
-              <Avatar user={other} />
-
-              <div
-                className="chatRowMain"
-                onClick={() =>
-                  onOpenChat(other, chat)
-                }
-                style={{ cursor: "pointer" }}
-              >
-                <div className="chatRowTop">
-                  <div className="chatName">
-                    {safeName(other)}
-                    {pinned && " 📌"}
-                  </div>
-
-                  <div className="chatTime">
-                    {timeText(
-                      chat.updatedAt
-                    )}
-                  </div>
-                </div>
-
-                <div className="chatPreview">
-                  {formatMessagePreview(
-                    chat.lastMessage
-                  )}
-                </div>
-              </div>
-
-              <div className="chatActions">
-                <button
-                  className={`miniBtn ${
-                    pinned ? "pinOn" : ""
-                  }`}
-                  title={
-                    pinned
-                      ? "Unpin"
-                      : "Pin"
-                  }
-                  onClick={() =>
-                    pinChat(chat)
-                  }
-                >
-                  📌
-                </button>
-
-                <button
-                  className="miniBtn"
-                  title="Hide"
-                  onClick={() =>
-                    hideChat(chat)
-                  }
-                >
-                  🙈
-                </button>
-
-                <button
-                  className="miniBtn"
-                  title="Delete"
-                  onClick={() =>
-                    deleteChat(chat)
-                  }
-                >
-                  🗑
-                </button>
-              </div>
-            </div>
-          );
-        })}
-
-        {visible.length === 0 && (
+        {visibleChats.length === 0 ? (
           <div className="empty">
             No chats yet.
-            <br />
-            Go to People and add friends.
+          </div>
+        ) : (
+          <div className="chatList">
+
+            {visibleChats.map(
+              (chat) => {
+
+                const otherId =
+                  otherMember(
+                    chat,
+                    uid
+                  );
+
+                const user =
+                  users[otherId] || {
+                    uid: otherId,
+                    name: "User"
+                  };
+
+                const pinned =
+                  (chat.pinnedBy || [])
+                    .includes(uid);
+
+                return (
+                  <div
+                    key={chat.id}
+                    className="chatRow"
+                    onClick={() =>
+                      onOpenChat(user)
+                    }
+                    onContextMenu={(e) =>
+                      longPress(
+                        e,
+                        chat
+                      )
+                    }
+                    onPointerDown={(e) => {
+
+                      if (
+                        e.pointerType !==
+                        "touch"
+                      ) {
+                        return;
+                      }
+
+                      const timer =
+                        setTimeout(() => {
+                          longPress(
+                            e,
+                            chat
+                          );
+                        }, 650);
+
+                      e.currentTarget
+                        .dataset
+                        .holdTimer = timer;
+                    }}
+                    onPointerUp={(e) => {
+
+                      const timer =
+                        e.currentTarget
+                          .dataset
+                          .holdTimer;
+
+                      if (timer) {
+                        clearTimeout(
+                          Number(timer)
+                        );
+                      }
+                    }}
+                    onPointerCancel={(e) => {
+
+                      const timer =
+                        e.currentTarget
+                          .dataset
+                          .holdTimer;
+
+                      if (timer) {
+                        clearTimeout(
+                          Number(timer)
+                        );
+                      }
+                    }}
+                  >
+
+                    <div className="avatar">
+
+                      {user.photoURL ? (
+                        <img
+                          src={
+                            user.photoURL
+                          }
+                          alt=""
+                        />
+                      ) : (
+                        initials(user)
+                      )}
+
+                    </div>
+
+                    <div className="chatRowMain">
+
+                      <div className="chatRowTop">
+
+                        <div className="chatName">
+                          {safeName(user)}
+
+                          {pinned && (
+                            <span className="pinBadge">
+                              📌
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="chatTime">
+                          {timeText(
+                            chat.updatedAt
+                          )}
+                        </div>
+
+                      </div>
+
+                      <div className="chatPreview">
+                        {formatMessagePreview(
+                          chat.lastMessage
+                        )}
+                      </div>
+
+                    </div>
+
+                  </div>
+                );
+              }
+            )}
+
           </div>
         )}
+
       </div>
-    </div>
+
+      {context && (
+        <>
+
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 199
+            }}
+            onClick={() =>
+              setContext(null)
+            }
+          />
+
+          <div
+            className="contextMenu"
+            style={{
+              left: context.x,
+              top: context.y
+            }}
+          >
+
+            <button
+              onClick={() =>
+                togglePin(
+                  context.chat
+                )
+              }
+            >
+              {(context.chat.pinnedBy || [])
+                .includes(uid)
+                ? "Unpin chat"
+                : "Pin chat"}
+            </button>
+
+            <button
+              onClick={() =>
+                hideChat(
+                  context.chat
+                )
+              }
+            >
+              Hide chat
+            </button>
+
+            <button
+              className="dangerItem"
+              onClick={() =>
+                deleteChat(
+                  context.chat
+                )
+              }
+            >
+              Delete chat
+            </button>
+
+          </div>
+
+        </>
+      )}
+
+    </>
   );
 }
+
 
 /* =========================================================
    PEOPLE
 ========================================================= */
 
 function People({
-  user,
-  users,
-  me,
+  uid,
   onOpenChat
 }) {
-  const [phone, setPhone] = useState("");
-  const [results, setResults] = useState([]);
-  const [history, setHistory] = useState(
-    me?.searchHistory || []
-  );
-  const [loading, setLoading] = useState(false);
+  const [search, setSearch] =
+    useState("");
+
+  const [results, setResults] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [history, setHistory] =
+    useState([]);
+
+  const [showHistoryMenu, setShowHistoryMenu] =
+    useState(false);
 
   useEffect(() => {
-    setHistory(me?.searchHistory || []);
-  }, [me?.searchHistory]);
+    if (!uid || !db) return;
 
-  async function saveHistory(number) {
-    const cleaned = normalizePhone(number);
+    const unsub = onSnapshot(
+      doc(db, "users", uid),
+      (snap) => {
+        const data =
+          snap.data() || {};
 
-    if (!cleaned) return;
+        setHistory(
+          Array.isArray(
+            data.searchHistory
+          )
+            ? data.searchHistory
+            : []
+        );
+      }
+    );
 
-    const next = [
-      cleaned,
-      ...history.filter(
-        (x) => x !== cleaned
-      )
-    ].slice(0, 20);
+    return () => unsub();
+  }, [uid]);
 
-    setHistory(next);
+  async function saveHistory(value) {
+    const clean =
+      value.trim();
+
+    if (!clean) return;
+
+    const old =
+      history.filter(
+        (x) =>
+          normalizeText(x) !==
+          normalizeText(clean)
+      );
+
+    const next =
+      [clean, ...old].slice(0, 20);
 
     await updateDoc(
-      doc(db, "users", user.uid),
+      doc(db, "users", uid),
       {
         searchHistory: next
       }
-    ).catch(() => {});
+    );
   }
 
-  async function search() {
-    const cleaned = normalizePhone(phone);
-
-    if (!cleaned) {
-      setResults([]);
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      await saveHistory(cleaned);
-
-      const q = query(
-        collection(db, "users"),
-        where(
-          "phoneNumber",
-          "==",
-          cleaned
-        ),
-        limit(10)
+  async function removeHistory(
+    value
+  ) {
+    const next =
+      history.filter(
+        (x) =>
+          normalizeText(x) !==
+          normalizeText(value)
       );
 
-      const snap = await getDocs(q);
-
-      const list = snap.docs
-        .map((d) => ({
-          uid: d.id,
-          ...d.data()
-        }))
-        .filter(
-          (u) => u.uid !== user.uid
-        );
-
-      setResults(list);
-    } catch (e) {
-      console.error(e);
-      alert("Search failed.");
-    }
-
-    setLoading(false);
+    await updateDoc(
+      doc(db, "users", uid),
+      {
+        searchHistory: next
+      }
+    );
   }
 
   async function clearHistory() {
     await updateDoc(
-      doc(db, "users", user.uid),
+      doc(db, "users", uid),
       {
         searchHistory: []
       }
-    ).catch(() => {});
-
-    setHistory([]);
-  }
-
-  function isFriend(uid) {
-    return (me?.friends || []).includes(
-      uid
     );
+
+    setShowHistoryMenu(false);
   }
 
-  function hasSentRequest(uid) {
-    return (me?.sentRequests || []).some(
-      (r) =>
-        typeof r === "string"
-          ? r === uid
-          : r.uid === uid
-    );
-  }
+  async function searchPeople(
+    value = search
+  ) {
+    const clean =
+      value.trim();
 
-  function hasIncoming(uid) {
-    return (me?.friendRequests || []).some(
-      (r) =>
-        typeof r === "string"
-          ? r === uid
-          : r.uid === uid
-    );
-  }
-
-  async function sendRequest(person) {
-    if (
-      isFriend(person.uid) ||
-      hasSentRequest(person.uid)
-    ) {
+    if (!clean) {
+      setResults([]);
       return;
     }
 
-    const request = {
-      uid: user.uid,
-      name: safeName(user),
-      photoURL: user.photoURL || ""
-    };
+    setSearch(clean);
+    setLoading(true);
 
-    await updateDoc(
-      doc(db, "users", person.uid),
-      {
-        friendRequests: arrayUnion(request)
-      }
-    );
+    await saveHistory(clean);
 
-    await updateDoc(
-      doc(db, "users", user.uid),
-      {
-        sentRequests: arrayUnion({
-          uid: person.uid,
-          name: safeName(person)
-        })
-      }
-    );
+    const lower =
+      normalizeText(clean);
 
-    alert("Friend request sent.");
+    const phone =
+      normalizePhone(clean);
+
+    const found = new Map();
+
+    try {
+
+      const usernameQuery =
+        query(
+          collection(db, "users"),
+          where(
+            "username",
+            "==",
+            lower
+          )
+        );
+
+      const emailQuery =
+        query(
+          collection(db, "users"),
+          where(
+            "email",
+            "==",
+            lower
+          )
+        );
+
+      const phoneQuery =
+        phone
+          ? query(
+              collection(
+                db,
+                "users"
+              ),
+              where(
+                "phoneNumber",
+                "==",
+                phone
+              )
+            )
+          : null;
+
+      const [
+        usernameSnap,
+        emailSnap,
+        phoneSnap
+      ] = await Promise.all([
+        getDocs(usernameQuery),
+        getDocs(emailQuery),
+        phoneQuery
+          ? getDocs(phoneQuery)
+          : Promise.resolve(null)
+      ]);
+
+      usernameSnap.forEach(
+        (snap) => {
+          if (snap.id !== uid) {
+            found.set(
+              snap.id,
+              {
+                uid: snap.id,
+                ...snap.data()
+              }
+            );
+          }
+        }
+      );
+
+      emailSnap.forEach(
+        (snap) => {
+          if (snap.id !== uid) {
+            found.set(
+              snap.id,
+              {
+                uid: snap.id,
+                ...snap.data()
+              }
+            );
+          }
+        }
+      );
+
+      phoneSnap?.forEach(
+        (snap) => {
+          if (snap.id !== uid) {
+            found.set(
+              snap.id,
+              {
+                uid: snap.id,
+                ...snap.data()
+              }
+            );
+          }
+        }
+      );
+
+      setResults(
+        Array.from(found.values())
+      );
+
+    } catch (error) {
+      console.error(error);
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  async function acceptRequest(request) {
-    const requestUid =
-      typeof request === "string"
-        ? request
-        : request.uid;
+  async function openPerson(user) {
+    const chatId =
+      chatIdFor(
+        uid,
+        user.uid
+      );
 
-    const friend = users.find(
-      (u) => u.uid === requestUid
-    );
+    try {
 
-    if (!friend) return;
+      const chatRef =
+        doc(db, "chats", chatId);
 
-    await updateDoc(
-      doc(db, "users", user.uid),
-      {
-        friends: arrayUnion(requestUid),
-        friendRequests:
-          arrayRemove(request)
+      const snap =
+        await getDoc(chatRef);
+
+      if (snap.exists()) {
+
+        /*
+          Important:
+          Hidden chat automatically becomes
+          visible when searched and opened.
+        */
+
+        await updateDoc(
+          chatRef,
+          {
+            hiddenBy:
+              arrayRemove(uid),
+            deletedBy:
+              arrayRemove(uid),
+            updatedAt:
+              serverTimestamp()
+          }
+        );
+
+      } else {
+
+        await setDoc(
+          chatRef,
+          {
+            members: [
+              uid,
+              user.uid
+            ],
+            createdAt:
+              serverTimestamp(),
+            updatedAt:
+              serverTimestamp(),
+            lastMessage: null,
+            pinnedBy: [],
+            hiddenBy: [],
+            deletedBy: []
+          }
+        );
+
       }
-    );
 
-    await updateDoc(
-      doc(db, "users", requestUid),
-      {
-        friends: arrayUnion(user.uid),
-        sentRequests:
-          arrayRemove({
-            uid: user.uid,
-            name: safeName(user)
-          })
-      }
-    );
+      onOpenChat(user);
+
+    } catch (error) {
+      console.error(error);
+      onOpenChat(user);
+    }
   }
 
-  async function rejectRequest(request) {
-    await updateDoc(
-      doc(db, "users", user.uid),
-      {
-        friendRequests:
-          arrayRemove(request)
-      }
-    );
-  }
+  async function poke(user) {
+    try {
 
-  async function poke(person) {
-    const request = {
-      uid: user.uid,
-      name: safeName(user),
-      type: "poke",
-      createdAt: Date.now()
-    };
+      const chatId =
+        chatIdFor(
+          uid,
+          user.uid
+        );
 
-    await updateDoc(
-      doc(db, "users", person.uid),
-      {
-        pokes: arrayUnion(request)
-      }
-    ).catch(() => {});
+      await setDoc(
+        doc(db, "chats", chatId),
+        {
+          members: [
+            uid,
+            user.uid
+          ],
+          updatedAt:
+            serverTimestamp(),
+          lastMessage: {
+            senderId: uid,
+            text: "👋 Poked you",
+            type: "text",
+            createdAt:
+              serverTimestamp()
+          }
+        },
+        {
+          merge: true
+        }
+      );
 
-    alert(`Poked ${safeName(person)} 👋`);
+      await addDoc(
+        collection(
+          db,
+          "chats",
+          chatId,
+          "messages"
+        ),
+        {
+          senderId: uid,
+          text: "👋 Poked you",
+          type: "text",
+          createdAt:
+            serverTimestamp(),
+          deliveredTo: [],
+          seenBy: []
+        }
+      );
+
+      alert("Poked!");
+
+    } catch (error) {
+      console.error(error);
+    }
   }
 
   return (
     <div className="page">
+
       <div className="pageHead">
+
         <div>
           <div className="pageTitle">
             People
           </div>
+
           <div className="subtle">
-            Search friends by mobile number
+            Search by number, username or email
           </div>
         </div>
+
       </div>
 
+
       <div className="searchBox">
+
         <input
           className="input"
-          placeholder="Mobile number"
-          value={phone}
+          placeholder="Mobile number / username / email"
+          value={search}
           onChange={(e) =>
-            setPhone(e.target.value)
+            setSearch(e.target.value)
           }
           onKeyDown={(e) => {
             if (e.key === "Enter") {
-              search();
+              searchPeople();
             }
           }}
         />
 
         <button
           className="primary"
-          onClick={search}
+          onClick={() =>
+            searchPeople()
+          }
         >
-          {loading ? "..." : "Search"}
+          Search
         </button>
+
       </div>
 
+
       {history.length > 0 && (
-        <div className="history">
-          <div className="historyTitle">
-            Search history
-          </div>
+        <>
 
-          <div className="historyItems">
-            {history.map((item) => (
-              <button
-                key={item}
-                className="historyChip"
-                onClick={() => {
-                  setPhone(item);
-                  setTimeout(
-                    () => search(),
-                    0
-                  );
-                }}
-              >
-                {item}
-              </button>
-            ))}
+          <div className="historyHead">
 
-            <button
-              className="historyChip"
-              onClick={clearHistory}
+            <div className="historyTitle">
+              Search history
+            </div>
+
+            <div
+              style={{
+                position: "relative"
+              }}
             >
-              Clear history
-            </button>
-          </div>
-        </div>
-      )}
 
-      {(me?.friendRequests || []).length >
-        0 && (
-        <div>
-          <div
-            style={{
-              padding: "14px 17px",
-              fontWeight: 800,
-              background: "#f8fafc"
-            }}
-          >
-            Friend requests
-          </div>
+              <button
+                className="iconBtn"
+                onClick={() =>
+                  setShowHistoryMenu(
+                    !showHistoryMenu
+                  )
+                }
+              >
+                ⋮
+              </button>
 
-          {(me?.friendRequests || []).map(
-            (request, index) => {
-              const uid =
-                typeof request === "string"
-                  ? request
-                  : request.uid;
-
-              const person =
-                users.find(
-                  (u) => u.uid === uid
-                ) || request;
-
-              return (
+              {showHistoryMenu && (
                 <div
-                  className="personRow"
-                  key={uid + index}
+                  className="contextMenu"
+                  style={{
+                    right: 0,
+                    top: 44
+                  }}
                 >
-                  <Avatar user={person} />
-
-                  <div className="personInfo">
-                    <div className="personName">
-                      {safeName(person)}
-                    </div>
-
-                    <div className="personBio">
-                      Wants to be your friend
-                    </div>
-                  </div>
-
-                  <div className="personActions">
-                    <button
-                      className="primary"
-                      onClick={() =>
-                        acceptRequest(
-                          request
-                        )
-                      }
-                    >
-                      Accept
-                    </button>
-
-                    <button
-                      className="secondary"
-                      onClick={() =>
-                        rejectRequest(
-                          request
-                        )
-                      }
-                    >
-                      Reject
-                    </button>
-                  </div>
+                  <button
+                    onClick={
+                      clearHistory
+                    }
+                  >
+                    Clear all search history
+                  </button>
                 </div>
-              );
-            }
-          )}
+              )}
+
+            </div>
+
+          </div>
+
+
+          <div className="historyList">
+
+            {history.map(
+              (item, index) => (
+                <div
+                  className="historyRow"
+                  key={
+                    item + index
+                  }
+                >
+
+                  <button
+                    style={{
+                      border: 0,
+                      background:
+                        "transparent",
+                      padding: 0,
+                      fontSize: 18
+                    }}
+                    onClick={() =>
+                      searchPeople(
+                        item
+                      )
+                    }
+                  >
+                    🔎
+                  </button>
+
+                  <div
+                    className="historyText"
+                    onClick={() =>
+                      searchPeople(
+                        item
+                      )
+                    }
+                  >
+                    {item}
+                  </div>
+
+                  <button
+                    className="historyX"
+                    title="Delete this search"
+                    onClick={() =>
+                      removeHistory(
+                        item
+                      )
+                    }
+                  >
+                    ×
+                  </button>
+
+                </div>
+              )
+            )}
+
+          </div>
+
+        </>
+      )}
+
+
+      {loading && (
+        <div className="empty">
+          Searching...
         </div>
       )}
 
-      {results.map((person) => {
-        const friend = isFriend(person.uid);
-        const sent = hasSentRequest(person.uid);
-        const incoming = hasIncoming(person.uid);
 
-        return (
+      {!loading &&
+        search &&
+        results.length === 0 && (
+          <div className="empty">
+            No user found.
+          </div>
+        )}
+
+
+      <div>
+
+        {results.map((user) => (
           <div
             className="personRow"
-            key={person.uid}
+            key={user.uid}
           >
-            <Avatar user={person} />
+
+            <div className="avatar">
+
+              {user.photoURL ? (
+                <img
+                  src={
+                    user.photoURL
+                  }
+                  alt=""
+                />
+              ) : (
+                initials(user)
+              )}
+
+            </div>
 
             <div className="personInfo">
+
               <div className="personName">
-                {safeName(person)}
+                {safeName(user)}
               </div>
 
-              <div className="personBio">
-                {person.username
-                  ? `@${person.username}`
-                  : person.bio ||
-                    "Chatdo user"}
+              <div className="personMeta">
+                {user.username
+                  ? `@${user.username}`
+                  : user.email ||
+                    user.phoneNumber ||
+                    ""}
               </div>
+
             </div>
 
-            <div className="personActions">
-              {friend ? (
-                <>
-                  <button
-                    className="primary"
-                    onClick={() =>
-                      onOpenChat(person)
-                    }
-                  >
-                    💬 Chat
-                  </button>
+            <button
+              className="secondary"
+              onClick={() =>
+                openPerson(user)
+              }
+            >
+              Chat
+            </button>
 
-                  <button
-                    className="secondary"
-                    onClick={() =>
-                      poke(person)
-                    }
-                  >
-                    👋 Poke
-                  </button>
-                </>
-              ) : incoming ? (
-                <span className="subtle">
-                  Request received ↑
-                </span>
-              ) : sent ? (
-                <span className="subtle">
-                  Request sent ✓
-                </span>
-              ) : (
-                <>
-                  <button
-                    className="primary"
-                    onClick={() =>
-                      sendRequest(person)
-                    }
-                  >
-                    Add friend
-                  </button>
+            <button
+              className="secondary"
+              onClick={() =>
+                poke(user)
+              }
+            >
+              👋
+            </button>
 
-                  <button
-                    className="secondary"
-                    onClick={() =>
-                      poke(person)
-                    }
-                  >
-                    👋 Poke
-                  </button>
-                </>
-              )}
-            </div>
           </div>
-        );
-      })}
+        ))}
 
-      {results.length === 0 &&
-        history.length === 0 && (
-          <div className="empty">
-            Enter a mobile number to find a
-            Chatdo user.
-          </div>
-        )}
+      </div>
 
-      {results.length === 0 &&
-        phone &&
-        !loading && (
-          <div className="empty">
-            No user found for this number.
-          </div>
-        )}
     </div>
   );
 }
+
 
 /* =========================================================
    STORIES
 ========================================================= */
 
-function Stories({ user, users }) {
-  const [stories, setStories] = useState([]);
-  const [activeStory, setActiveStory] =
+function Stories({
+  uid,
+  profile
+}) {
+  const [stories, setStories] =
+    useState([]);
+
+  const [viewer, setViewer] =
     useState(null);
 
-  const [showAdd, setShowAdd] =
-    useState(false);
-
-  const [storyText, setStoryText] =
-    useState("");
-
-  const [storyFile, setStoryFile] =
-    useState(null);
-
-  const [posting, setPosting] =
-    useState(false);
+  const fileInputRef =
+    useRef(null);
 
   useEffect(() => {
-    const q = query(
-      collection(db, "stories"),
-      orderBy("createdAt", "desc"),
-      limit(100)
-    );
+    if (!uid || !db) return;
 
-    const unsub = onSnapshot(q, (snap) => {
-      const now = Date.now();
+    const q =
+      query(
+        collection(db, "stories"),
+        orderBy(
+          "createdAt",
+          "desc"
+        )
+      );
 
-      const list = snap.docs
-        .map((d) => ({
-          id: d.id,
-          ...d.data()
-        }))
-        .filter((s) => {
-          if (!s.expiresAt) return true;
+    const unsub =
+      onSnapshot(
+        q,
+        (snap) => {
 
-          const expiry =
-            typeof s.expiresAt?.toMillis ===
-            "function"
-              ? s.expiresAt.toMillis()
-              : new Date(
-                  s.expiresAt
-                ).getTime();
+          const now =
+            Date.now();
 
-          return expiry > now;
-        });
+          const rows =
+            snap.docs
+              .map((d) => ({
+                id: d.id,
+                ...d.data()
+              }))
+              .filter((story) => {
 
-      list.sort((a, b) => {
-        const am =
-          a.uid === user.uid ? 1 : 0;
+                if (
+                  story.expiresAt
+                ) {
+                  return (
+                    getMillis(
+                      story.expiresAt
+                    ) > now
+                  );
+                }
 
-        const bm =
-          b.uid === user.uid ? 1 : 0;
+                return true;
+              });
 
-        if (am !== bm) return bm - am;
+          rows.sort((a, b) => {
 
-        const at =
-          a.createdAt?.toMillis?.() || 0;
+            const am =
+              a.uid === uid;
 
-        const bt =
-          b.createdAt?.toMillis?.() || 0;
+            const bm =
+              b.uid === uid;
 
-        return bt - at;
-      });
+            if (am !== bm) {
+              return am ? -1 : 1;
+            }
 
-      setStories(list);
-    });
+            return (
+              getMillis(
+                b.createdAt
+              ) -
+              getMillis(
+                a.createdAt
+              )
+            );
+          });
+
+          setStories(rows);
+        }
+      );
 
     return () => unsub();
-  }, [user.uid]);
+  }, [uid]);
 
-  async function postStory() {
-    if (!storyText.trim() && !storyFile) {
-      alert("Add text or an image.");
+  async function addStory(file) {
+    if (!file) return;
+
+    if (!storage) {
+      alert(
+        "Firebase Storage is not enabled yet."
+      );
       return;
     }
 
-    setPosting(true);
-
     try {
-      let imageURL = "";
 
-      if (storyFile) {
-        const safeName =
-          storyFile.name.replace(
-            /[^\w.-]/g,
-            "_"
-          );
+      const path =
+        `stories/${uid}/${Date.now()}_${file.name}`;
 
-        const storageRef = ref(
-          storage,
-          `stories/${user.uid}/${Date.now()}_${safeName}`
+      const storageRef =
+        ref(storage, path);
+
+      await uploadBytes(
+        storageRef,
+        file
+      );
+
+      const url =
+        await getDownloadURL(
+          storageRef
         );
-
-        await uploadBytes(
-          storageRef,
-          storyFile
-        );
-
-        imageURL =
-          await getDownloadURL(
-            storageRef
-          );
-      }
 
       await addDoc(
         collection(db, "stories"),
         {
-          uid: user.uid,
-          name: safeName(user),
-          photoURL: user.photoURL || "",
-          text: storyText.trim(),
-          imageURL,
-          createdAt: serverTimestamp(),
+          uid,
+          name: safeName(profile),
+          photoURL:
+            profile?.photoURL || "",
+          mediaUrl: url,
+          type:
+            file.type.startsWith(
+              "video/"
+            )
+              ? "video"
+              : "image",
+          createdAt:
+            serverTimestamp(),
           expiresAt:
             new Date(
               Date.now() +
@@ -3587,719 +3976,768 @@ function Stories({ user, users }) {
         }
       );
 
-      setStoryText("");
-      setStoryFile(null);
-      setShowAdd(false);
-    } catch (e) {
-      console.error(e);
-      alert("Could not post story.");
+    } catch (error) {
+      console.error(error);
+      alert(
+        "Story upload failed."
+      );
     }
-
-    setPosting(false);
   }
 
-  async function deleteStory(story) {
-    if (story.uid !== user.uid) return;
+  async function likeStory(
+    story
+  ) {
+    const liked =
+      (story.likes || [])
+        .includes(uid);
 
-    const ok = window.confirm(
-      "Delete this story?"
-    );
-
-    if (!ok) return;
-
-    await deleteDoc(
-      doc(db, "stories", story.id)
-    );
-  }
-
-  async function likeStory(story) {
     await updateDoc(
-      doc(db, "stories", story.id),
+      doc(
+        db,
+        "stories",
+        story.id
+      ),
       {
-        likes: (
-          story.likes || []
-        ).includes(user.uid)
-          ? arrayRemove(user.uid)
-          : arrayUnion(user.uid)
+        likes: liked
+          ? arrayRemove(uid)
+          : arrayUnion(uid)
       }
     );
   }
 
-  const myStory = stories.find(
-    (s) => s.uid === user.uid
-  );
+  async function deleteStory(
+    story
+  ) {
+    if (story.uid !== uid) {
+      return;
+    }
 
-  const otherStories = stories.filter(
-    (s) => s.uid !== user.uid
-  );
+    await deleteDoc(
+      doc(
+        db,
+        "stories",
+        story.id
+      )
+    );
+
+    if (
+      viewer?.id === story.id
+    ) {
+      setViewer(null);
+    }
+  }
+
+  const myStory =
+    stories.find(
+      (s) => s.uid === uid
+    );
+
+  const otherStories =
+    stories.filter(
+      (s) => s.uid !== uid
+    );
 
   return (
     <div className="page">
+
       <div className="pageHead">
+
         <div>
           <div className="pageTitle">
             Stories
           </div>
+
           <div className="subtle">
-            Tap a story to view it full screen
+            Stories disappear after 24 hours
           </div>
         </div>
+
       </div>
 
-      <div className="storyGrid">
+
+      <div className="storiesGrid">
+
         <div
-          className="addStory"
+          className="storyCard addStory"
           onClick={() =>
-            setShowAdd(true)
+            fileInputRef.current?.click()
           }
         >
+
           <div>
-            <div className="plus">
+
+            <div className="addStoryPlus">
               +
             </div>
+
             <strong>
               Add my story
             </strong>
+
           </div>
+
         </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*"
+          hidden
+          onChange={(e) => {
+            addStory(
+              e.target.files?.[0]
+            );
+            e.target.value = "";
+          }}
+        />
+
 
         {myStory && (
           <div
             className="storyCard"
             onClick={() =>
-              setActiveStory(myStory)
+              setViewer(myStory)
             }
           >
-            {myStory.imageURL ? (
-              <img
-                src={myStory.imageURL}
-                alt=""
+
+            {myStory.type ===
+            "video" ? (
+              <video
+                src={
+                  myStory.mediaUrl
+                }
               />
             ) : (
-              <div
-                className="storyTextOnly"
-                style={{
-                  background:
-                    "linear-gradient(135deg,#111827,#334155)"
-                }}
-              >
-                {myStory.text}
-              </div>
+              <img
+                src={
+                  myStory.mediaUrl
+                }
+                alt=""
+              />
             )}
 
             <div className="storyOverlay">
-              <div className="storyName">
-                My Story
-              </div>
-
-              <button
-                className="danger"
-                style={{
-                  marginTop: 7,
-                  padding: "5px 8px"
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteStory(myStory);
-                }}
-              >
-                Delete
-              </button>
+              <strong>
+                My story
+              </strong>
             </div>
+
           </div>
         )}
 
-        {otherStories.map((story) => {
-          const liked =
-            (story.likes || []).includes(
-              user.uid
-            );
 
-          return (
+        {otherStories.map(
+          (story) => (
             <div
               className="storyCard"
               key={story.id}
               onClick={() =>
-                setActiveStory(story)
+                setViewer(story)
               }
             >
-              {story.imageURL ? (
-                <img
-                  src={story.imageURL}
-                  alt=""
+
+              {story.type ===
+              "video" ? (
+                <video
+                  src={
+                    story.mediaUrl
+                  }
                 />
               ) : (
-                <div
-                  className="storyTextOnly"
-                  style={{
-                    background:
-                      "linear-gradient(135deg,#1e293b,#475569)"
-                  }}
-                >
-                  {story.text}
-                </div>
+                <img
+                  src={
+                    story.mediaUrl
+                  }
+                  alt=""
+                />
               )}
 
               <div className="storyOverlay">
-                <div className="storyName">
-                  {story.name}
-                </div>
 
-                <button
-                  className="secondary"
-                  style={{
-                    marginTop: 7,
-                    padding: "5px 8px"
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    likeStory(story);
-                  }}
-                >
-                  {liked ? "♥" : "♡"}{" "}
-                  {(story.likes || []).length}
-                </button>
+                <strong>
+                  {story.name ||
+                    "User"}
+                </strong>
+
+                <span>
+                  {timeText(
+                    story.createdAt
+                  )}
+                </span>
+
               </div>
+
             </div>
-          );
-        })}
+          )
+        )}
+
       </div>
 
-      {showAdd && (
-        <div
-          className="storyViewer"
-          onClick={() =>
-            setShowAdd(false)
-          }
-        >
-          <div
-            style={{
-              width: "min(430px,100%)",
-              background: "white",
-              color: "#172033",
-              padding: 20,
-              borderRadius: 20
-            }}
-            onClick={(e) =>
-              e.stopPropagation()
-            }
-          >
-            <div
-              style={{
-                fontSize: 20,
-                fontWeight: 800,
-                marginBottom: 14
-              }}
-            >
-              + Add my story
-            </div>
 
-            <textarea
-              placeholder="Write something..."
-              value={storyText}
-              onChange={(e) =>
-                setStoryText(
-                  e.target.value
-                )
-              }
-            />
-
-            <label
-              className="secondary"
-              style={{
-                display: "block",
-                textAlign: "center",
-                marginTop: 10
-              }}
-            >
-              📷 Choose image
-              <input
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) =>
-                  setStoryFile(
-                    e.target.files?.[0] ||
-                      null
-                  )
-                }
-              />
-            </label>
-
-            {storyFile && (
-              <div
-                style={{
-                  fontSize: 12,
-                  marginTop: 8
-                }}
-              >
-                {storyFile.name}
-              </div>
-            )}
-
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                marginTop: 15
-              }}
-            >
-              <button
-                className="primary"
-                style={{ flex: 1 }}
-                onClick={postStory}
-                disabled={posting}
-              >
-                {posting
-                  ? "Posting..."
-                  : "Add my story"}
-              </button>
-
-              <button
-                className="secondary"
-                onClick={() =>
-                  setShowAdd(false)
-                }
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
+      {stories.length === 0 && (
+        <div className="empty">
+          No active stories.
         </div>
       )}
 
-      {activeStory && (
-        <div className="storyViewer">
-          <button
-            className="storyViewerClose"
-            onClick={() =>
-              setActiveStory(null)
-            }
-          >
-            ×
-          </button>
 
-          <div className="storyFull">
-            {activeStory.imageURL ? (
-              <img
-                src={activeStory.imageURL}
-                alt=""
+      {viewer && (
+        <div className="storyViewer">
+
+          <div className="storyViewerContent">
+
+            <div className="storyViewerTop">
+
+              <div>
+                <strong>
+                  {viewer.uid === uid
+                    ? "My story"
+                    : viewer.name ||
+                      "User"}
+                </strong>
+
+                <div
+                  style={{
+                    fontSize: 12,
+                    opacity: .7
+                  }}
+                >
+                  {dateTimeText(
+                    viewer.createdAt
+                  )}
+                </div>
+              </div>
+
+              <button
+                className="iconBtn"
+                onClick={() =>
+                  setViewer(null)
+                }
+              >
+                ×
+              </button>
+
+            </div>
+
+
+            {viewer.type ===
+            "video" ? (
+              <video
+                src={
+                  viewer.mediaUrl
+                }
+                controls
+                autoPlay
               />
             ) : (
-              <div
-                className="storyTextOnly"
-                style={{
-                  background:
-                    "linear-gradient(135deg,#111827,#475569)"
-                }}
-              >
-                {activeStory.text}
-              </div>
+              <img
+                src={
+                  viewer.mediaUrl
+                }
+                alt=""
+              />
             )}
 
-            <div className="storyFullBottom">
-              <div
-                style={{
-                  fontWeight: 800,
-                  marginBottom: 5
-                }}
-              >
-                {activeStory.uid ===
-                user.uid
-                  ? "My Story"
-                  : activeStory.name}
-              </div>
 
-              {activeStory.text && (
-                <div>
-                  {activeStory.text}
-                </div>
-              )}
+            <div className="storyViewerBottom">
 
               <button
                 className="secondary"
-                style={{
-                  marginTop: 10
-                }}
                 onClick={() =>
-                  likeStory(activeStory)
+                  likeStory(
+                    viewer
+                  )
                 }
               >
-                {(activeStory.likes || []).includes(
-                  user.uid
-                )
+                {(viewer.likes || [])
+                  .includes(uid)
                   ? "♥ Liked"
-                  : "♡ Like"}{" "}
-                {(activeStory.likes || [])
-                  .length}
+                  : "♡ Like"}
               </button>
 
-              {activeStory.uid ===
-                user.uid && (
+              <span>
+                {(viewer.likes || [])
+                  .length}{" "}
+                likes
+              </span>
+
+              {viewer.uid === uid && (
                 <button
                   className="danger"
-                  style={{
-                    marginLeft: 8
-                  }}
-                  onClick={async () => {
-                    await deleteStory(
-                      activeStory
-                    );
-                    setActiveStory(null);
-                  }}
+                  onClick={() =>
+                    deleteStory(
+                      viewer
+                    )
+                  }
                 >
                   Delete
                 </button>
               )}
+
             </div>
+
           </div>
+
         </div>
       )}
+
     </div>
   );
 }
 
+
 /* =========================================================
-   CALLS PAGE
+   CALL HISTORY
 ========================================================= */
 
 function CallsPage({
-  user,
-  users,
+  uid,
   onStartCall
 }) {
-  const [calls, setCalls] = useState([]);
+  const [calls, setCalls] =
+    useState([]);
+
+  const [users, setUsers] =
+    useState({});
 
   useEffect(() => {
-    if (!user) return;
+    if (!uid || !db) return;
 
-    const q = query(
-      collection(db, "calls"),
-      where(
-        "members",
-        "array-contains",
-        user.uid
-      ),
-      limit(100)
-    );
-
-    const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs
-        .map((d) => ({
-          id: d.id,
-          ...d.data()
-        }))
-        .filter(
-          (c) =>
-            c.status !== "ringing"
+    const q =
+      query(
+        collection(db, "calls"),
+        where(
+          "members",
+          "array-contains",
+          uid
         )
-        .sort((a, b) => {
-          const at =
-            a.createdAt?.toMillis?.() ||
-            0;
+      );
 
-          const bt =
-            b.createdAt?.toMillis?.() ||
-            0;
+    const unsub =
+      onSnapshot(
+        q,
+        async (snap) => {
 
-          return bt - at;
-        });
+          const rows =
+            snap.docs
+              .map((d) => ({
+                id: d.id,
+                ...d.data()
+              }))
+              .sort(
+                (a, b) =>
+                  getMillis(
+                    b.createdAt
+                  ) -
+                  getMillis(
+                    a.createdAt
+                  )
+              );
 
-      setCalls(list);
-    });
+          setCalls(rows);
+
+          const map = {};
+
+          for (const call of rows) {
+
+            const other =
+              otherMember(
+                call,
+                uid
+              );
+
+            if (!other) continue;
+
+            try {
+              const snapUser =
+                await getDoc(
+                  doc(
+                    db,
+                    "users",
+                    other
+                  )
+                );
+
+              if (
+                snapUser.exists()
+              ) {
+                map[other] = {
+                  uid: other,
+                  ...snapUser.data()
+                };
+              }
+            } catch {}
+          }
+
+          setUsers(map);
+        }
+      );
 
     return () => unsub();
-  }, [user]);
+  }, [uid]);
 
   return (
     <div className="page">
+
       <div className="pageHead">
         <div>
           <div className="pageTitle">
             Calls
           </div>
+
           <div className="subtle">
             Audio and video call history
           </div>
         </div>
       </div>
 
-      {calls.length === 0 && (
+
+      {calls.length === 0 ? (
         <div className="empty">
           No calls yet.
         </div>
-      )}
+      ) : (
+        calls.map((call) => {
 
-      {calls.map((call) => {
-        const outgoing =
-          call.callerId === user.uid;
+          const other =
+            otherMember(
+              call,
+              uid
+            );
 
-        const otherId = outgoing
-          ? call.calleeId
-          : call.callerId;
+          const user =
+            users[other] || {
+              uid: other,
+              name: "User"
+            };
 
-        const other =
-          users.find(
-            (u) => u.uid === otherId
-          ) || {
-            uid: otherId,
-            displayName: outgoing
-              ? call.calleeName
-              : call.callerName,
-            photoURL: outgoing
-              ? call.calleePhoto
-              : call.callerPhoto
-          };
-
-        return (
-          <div
-            className="callRow"
-            key={call.id}
-          >
-            <div className="callIcon">
-              {call.type === "video"
-                ? "📹"
-                : "☎"}
-            </div>
-
-            <Avatar
-              user={other}
-              small
-            />
-
+          return (
             <div
-              style={{
-                flex: 1,
-                minWidth: 0
-              }}
+              className="personRow"
+              key={call.id}
             >
-              <div
-                style={{
-                  fontWeight: 800
-                }}
-              >
-                {safeName(other)}
-              </div>
 
-              <div className="subtle">
-                {outgoing
-                  ? "Outgoing"
-                  : "Incoming"}{" "}
-                · {call.status} ·{" "}
-                {dateTimeText(
-                  call.createdAt
+              <div className="avatar">
+                {user.photoURL ? (
+                  <img
+                    src={
+                      user.photoURL
+                    }
+                    alt=""
+                  />
+                ) : (
+                  initials(user)
                 )}
               </div>
-            </div>
 
-            <button
-              className="secondary"
-              onClick={() =>
-                onStartCall(
-                  other,
-                  call.type
-                )
-              }
-            >
-              {call.type === "video"
-                ? "📹"
-                : "☎"}
-            </button>
-          </div>
-        );
-      })}
+              <div className="personInfo">
+
+                <div className="personName">
+                  {safeName(user)}
+                </div>
+
+                <div className="personMeta">
+                  {call.type ===
+                  "video"
+                    ? "Video call"
+                    : "Audio call"}{" "}
+                  ·{" "}
+                  {dateTimeText(
+                    call.createdAt
+                  )}
+                </div>
+
+              </div>
+
+              <button
+                className="circleBtn"
+                onClick={() =>
+                  onStartCall(
+                    user,
+                    call.type ===
+                      "video"
+                  )
+                }
+              >
+                {call.type ===
+                "video"
+                  ? "▣"
+                  : "☎"}
+              </button>
+
+            </div>
+          );
+        })
+      )}
+
     </div>
   );
 }
+
 
 /* =========================================================
    SETTINGS
 ========================================================= */
 
 function Settings({
-  user,
-  me,
-  onClose
+  uid,
+  profile,
+  onLogout
 }) {
   const [name, setName] =
-    useState(me?.name || "");
+    useState("");
 
   const [username, setUsername] =
-    useState(me?.username || "");
+    useState("");
 
-  const [phone, setPhone] =
-    useState(me?.phoneNumber || "");
+  const [phoneNumber, setPhoneNumber] =
+    useState("");
 
   const [bio, setBio] =
-    useState(me?.bio || "");
+    useState("");
 
   const [hobbies, setHobbies] =
-    useState(me?.hobbies || "");
+    useState("");
 
-  const [photo, setPhoto] =
-    useState(me?.photoURL || user.photoURL || "");
-
-  const [file, setFile] =
-    useState(null);
+  const [photoURL, setPhotoURL] =
+    useState("");
 
   const [saving, setSaving] =
     useState(false);
+
+  const fileInputRef =
+    useRef(null);
+
+  useEffect(() => {
+
+    if (!profile) return;
+
+    setName(
+      profile.name ||
+      profile.displayName ||
+      ""
+    );
+
+    setUsername(
+      profile.username ||
+      ""
+    );
+
+    setPhoneNumber(
+      profile.phoneNumber ||
+      ""
+    );
+
+    setBio(
+      profile.bio ||
+      ""
+    );
+
+    setHobbies(
+      profile.hobbies ||
+      ""
+    );
+
+    setPhotoURL(
+      profile.photoURL ||
+      ""
+    );
+
+  }, [profile]);
 
   async function save() {
     setSaving(true);
 
     try {
-      let photoURL = photo;
-
-      if (file) {
-        const safeName =
-          file.name.replace(
-            /[^\w.-]/g,
-            "_"
-          );
-
-        const storageRef = ref(
-          storage,
-          `profiles/${user.uid}/${Date.now()}_${safeName}`
-        );
-
-        await uploadBytes(
-          storageRef,
-          file
-        );
-
-        photoURL =
-          await getDownloadURL(
-            storageRef
-          );
-      }
-
-      const cleanedPhone =
-        normalizePhone(phone);
 
       const existingUsername =
-        me?.username?.trim() || "";
+        profile?.username || "";
 
-      let finalUsername =
-        existingUsername;
+      const normalizedUsername =
+        normalizeText(
+          username
+        );
 
-      if (!existingUsername) {
-        finalUsername =
-          username.trim().toLowerCase();
+      const data = {
+        name:
+          name.trim(),
+        displayName:
+          name.trim(),
+        phoneNumber:
+          normalizePhone(
+            phoneNumber
+          ),
+        bio:
+          bio.trim(),
+        hobbies:
+          hobbies.trim(),
+        photoURL:
+          photoURL,
+        updatedAt:
+          serverTimestamp()
+      };
+
+      if (
+        !existingUsername &&
+        normalizedUsername
+      ) {
+        data.username =
+          normalizedUsername;
       }
 
       await setDoc(
-        doc(db, "users", user.uid),
+        doc(
+          db,
+          "users",
+          uid
+        ),
+        data,
         {
-          uid: user.uid,
-          name: name.trim(),
-          phoneNumber: cleanedPhone,
-          username: finalUsername,
-          bio: bio.trim(),
-          hobbies: hobbies.trim(),
-          photoURL
-        },
-        { merge: true }
+          merge: true
+        }
       );
 
-      await updateProfile(user, {
-        displayName: name.trim(),
-        photoURL
-      });
+      try {
+        await updateProfile(
+          auth.currentUser,
+          {
+            displayName:
+              name.trim(),
+            photoURL:
+              photoURL || null
+          }
+        );
+      } catch {}
 
-      setPhoto(photoURL);
-      setFile(null);
+      alert(
+        "Profile saved."
+      );
 
-      alert("Profile updated.");
-    } catch (e) {
-      console.error(e);
-      alert("Could not update profile.");
+    } catch (error) {
+      console.error(error);
+      alert(
+        "Unable to save profile."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function uploadProfilePhoto(
+    file
+  ) {
+    if (!file) return;
+
+    if (!storage) {
+      alert(
+        "Firebase Storage is not enabled yet."
+      );
+      return;
     }
 
-    setSaving(false);
+    try {
+
+      const path =
+        `profiles/${uid}/profile_${Date.now()}_${file.name}`;
+
+      const storageRef =
+        ref(storage, path);
+
+      await uploadBytes(
+        storageRef,
+        file
+      );
+
+      const url =
+        await getDownloadURL(
+          storageRef
+        );
+
+      setPhotoURL(url);
+
+    } catch (error) {
+      console.error(error);
+      alert(
+        "Profile photo upload failed."
+      );
+    }
   }
+
+  const usernameLocked =
+    Boolean(
+      profile?.username
+    );
 
   return (
     <div className="page">
+
       <div className="pageHead">
+
         <div>
           <div className="pageTitle">
             Settings
           </div>
+
           <div className="subtle">
             Manage your Chatdo profile
           </div>
         </div>
 
-        {onClose && (
-          <button
-            className="secondary"
-            onClick={onClose}
-          >
-            Back
-          </button>
-        )}
       </div>
 
+
       <div className="settings">
-        <div className="profileBox">
-          <div className="profileBig">
-            {photo ? (
+
+        <div className="profileCenter">
+
+          <div className="profileLarge">
+
+            {photoURL ? (
               <img
-                src={photo}
+                src={photoURL}
                 alt=""
               />
             ) : (
-              safeName(me || user)
-                .charAt(0)
-                .toUpperCase()
+              initials({
+                name,
+                email:
+                  profile?.email
+              })
             )}
+
           </div>
 
-          <div>
-            <div
-              style={{
-                fontSize: 18,
-                fontWeight: 800
-              }}
-            >
-              {safeName(me || user)}
-            </div>
+          <br />
 
-            <div className="subtle">
-              {user.email}
-            </div>
+          <button
+            className="secondary"
+            onClick={() =>
+              fileInputRef.current?.click()
+            }
+          >
+            Change profile picture
+          </button>
 
-            <label
-              className="secondary"
-              style={{
-                display: "inline-block",
-                marginTop: 9
-              }}
-            >
-              Change profile photo
-              <input
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) =>
-                  setFile(
-                    e.target.files?.[0] ||
-                      null
-                  )
-                }
-              />
-            </label>
-          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => {
+              uploadProfilePhoto(
+                e.target.files?.[0]
+              );
+              e.target.value = "";
+            }}
+          />
+
         </div>
 
-        <div className="settingsSection">
-          <div className="settingsTitle">
-            Profile
-          </div>
 
-          <div className="settingsBody">
-            <div className="fieldLabel">
+        <div className="settingGrid">
+
+          <div>
+            <div className="settingLabel">
               Name
             </div>
 
@@ -4307,62 +4745,112 @@ function Settings({
               className="input"
               value={name}
               onChange={(e) =>
-                setName(e.target.value)
+                setName(
+                  e.target.value
+                )
               }
             />
+          </div>
 
-            <div className="fieldLabel">
+
+          <div>
+
+            <div className="settingLabel">
               Username
             </div>
 
             <input
-              className="input"
+              className={
+                "input " +
+                (usernameLocked
+                  ? "locked"
+                  : "")
+              }
               value={username}
-              disabled={!!me?.username}
-              placeholder="Set your username"
+              disabled={
+                usernameLocked
+              }
+              placeholder="@username"
               onChange={(e) =>
                 setUsername(
                   e.target.value
-                    .replace(/\s/g, "")
-                    .toLowerCase()
+                    .replace(
+                      /\s/g,
+                      ""
+                    )
                 )
               }
             />
 
             <div className="subtle">
-              {me?.username
-                ? "Username cannot be changed after it is set."
-                : "You can set your username once."}
+              {usernameLocked
+                ? "Username cannot be changed."
+                : "Choose your username. It will be locked after saving."}
             </div>
 
-            <div className="fieldLabel">
+          </div>
+
+
+          <div>
+
+            <div className="settingLabel">
               Mobile number
             </div>
 
             <input
               className="input"
-              value={phone}
+              value={phoneNumber}
+              placeholder="Mobile number"
               onChange={(e) =>
-                setPhone(
+                setPhoneNumber(
                   e.target.value
                 )
               }
-              placeholder="Mobile number"
             />
 
-            <div className="fieldLabel">
+          </div>
+
+
+          <div>
+
+            <div className="settingLabel">
+              Email
+            </div>
+
+            <input
+              className="input locked"
+              value={
+                profile?.email ||
+                ""
+              }
+              disabled
+            />
+
+          </div>
+
+
+          <div>
+
+            <div className="settingLabel">
               Bio
             </div>
 
             <textarea
               value={bio}
               onChange={(e) =>
-                setBio(e.target.value)
+                setBio(
+                  e.target.value
+                )
               }
-              placeholder="About you"
+              placeholder="Tell people about you"
             />
 
-            <div className="fieldLabel">
+          </div>
+
+
+          <div>
+
+            <div className="settingLabel">
               Hobbies
             </div>
 
@@ -4376,398 +4864,363 @@ function Settings({
               placeholder="Music, travel, sports..."
             />
 
-            <button
-              className="primary"
-              onClick={save}
-              disabled={saving}
-            >
-              {saving
-                ? "Saving..."
-                : "Save profile"}
-            </button>
           </div>
+
+
+          <button
+            className="primary"
+            onClick={save}
+            disabled={saving}
+          >
+            {saving
+              ? "Saving..."
+              : "Save profile"}
+          </button>
+
+
+          <button
+            className="danger"
+            onClick={onLogout}
+          >
+            Logout
+          </button>
+
         </div>
 
-        <div className="settingsSection">
-          <div className="settingsTitle">
-            Account
-          </div>
-
-          <div className="settingsBody">
-            <div className="subtle">
-              Email
-            </div>
-
-            <div
-              style={{
-                fontWeight: 700
-              }}
-            >
-              {user.email}
-            </div>
-
-            <div className="subtle">
-              To change your password, use
-              "Forgot password" from the login
-              screen.
-            </div>
-          </div>
-        </div>
       </div>
+
     </div>
   );
 }
 
+
 /* =========================================================
-   SOCIAL APP
+   MAIN SOCIAL APP
 ========================================================= */
 
-function SocialApp({ user }) {
+function SocialApp({
+  uid
+}) {
   const [tab, setTab] =
     useState("chats");
 
-  const [users, setUsers] =
-    useState([]);
-
-  const [me, setMe] =
+  const [chatUser, setChatUser] =
     useState(null);
 
-  const [openChat, setOpenChat] =
-    useState(null);
+  const [showSettings, setShowSettings] =
+    useState(false);
+
+  const profile =
+    useUserProfile(uid);
+
+  usePresence(uid);
 
   const callManager =
-    useCallManager(user);
+    useCallManager(uid);
 
-  usePresence(user);
+  function openChat(user) {
+    setChatUser(user);
+    setTab("chats");
+  }
 
-  useEffect(() => {
-    if (!user) return;
+  function closeChat() {
+    setChatUser(null);
+  }
 
-    const unsubUsers = onSnapshot(
-      collection(db, "users"),
-      (snap) => {
-        const list = snap.docs.map(
-          (d) => ({
-            uid: d.id,
-            ...d.data()
-          })
+  function startCall(
+    user,
+    video
+  ) {
+    callManager
+      .startCall(
+        user,
+        video
+      )
+      .catch((error) => {
+        console.error(error);
+
+        alert(
+          "Call could not start. Please allow microphone/camera access."
         );
-
-        setUsers(list);
-      }
-    );
-
-    const unsubMe = onSnapshot(
-      doc(db, "users", user.uid),
-      (snap) => {
-        if (snap.exists()) {
-          setMe({
-            uid: snap.id,
-            ...snap.data()
-          });
-        }
-      }
-    );
-
-    return () => {
-      unsubUsers();
-      unsubMe();
-    };
-  }, [user.uid]);
-
-  const currentUser = useMemo(() => {
-    return (
-      users.find(
-        (u) => u.uid === user.uid
-      ) ||
-      me ||
-      {
-        uid: user.uid,
-        email: user.email,
-        displayName:
-          user.displayName
-      }
-    );
-  }, [users, me, user]);
-
-  const friends = useMemo(() => {
-    const ids =
-      currentUser?.friends || [];
-
-    return users.filter((u) =>
-      ids.includes(u.uid)
-    );
-  }, [users, currentUser]);
-
-  function changeTab(next) {
-    setOpenChat(null);
-    setTab(next);
+      });
   }
 
-  function swipeHandlers() {
-    let startX = 0;
-    let startY = 0;
+  function handleSwipe(
+    e
+  ) {
+    if (
+      chatUser ||
+      showSettings
+    ) {
+      return;
+    }
 
-    return {
-      onTouchStart: (e) => {
-        const target = e.target;
+    const target =
+      e.target;
 
-        if (
-          target.closest(
-            ".messages, .composer, input, textarea, button, video, audio"
+    if (
+      target.closest(
+        ".messages, .composer, input, textarea, button, video, audio"
+      )
+    ) {
+      return;
+    }
+
+    const startX =
+      e.changedTouches?.[0]
+        ?.clientX;
+
+    const startY =
+      e.changedTouches?.[0]
+        ?.clientY;
+
+    if (
+      startX == null ||
+      startY == null
+    ) {
+      return;
+    }
+
+    if (
+      !window.__chatdoTouchStart
+    ) {
+      return;
+    }
+
+    const diffX =
+      startX -
+      window.__chatdoTouchStart.x;
+
+    const diffY =
+      startY -
+      window.__chatdoTouchStart.y;
+
+    if (
+      Math.abs(diffX) <
+      60
+    ) {
+      return;
+    }
+
+    if (
+      Math.abs(diffX) <
+      Math.abs(diffY)
+    ) {
+      return;
+    }
+
+    const index =
+      TABS.indexOf(tab);
+
+    if (diffX < 0) {
+      setTab(
+        TABS[
+          Math.min(
+            index + 1,
+            TABS.length - 1
           )
-        ) {
-          return;
-        }
-
-        startX =
-          e.changedTouches[0].clientX;
-
-        startY =
-          e.changedTouches[0].clientY;
-      },
-
-      onTouchEnd: (e) => {
-        if (!startX) return;
-
-        const target = e.target;
-
-        if (
-          target.closest(
-            ".messages, .composer, input, textarea, button, video, audio"
+        ]
+      );
+    } else {
+      setTab(
+        TABS[
+          Math.max(
+            index - 1,
+            0
           )
-        ) {
-          startX = 0;
-          startY = 0;
-          return;
-        }
-
-        const endX =
-          e.changedTouches[0].clientX;
-
-        const endY =
-          e.changedTouches[0].clientY;
-
-        const dx = endX - startX;
-        const dy = endY - startY;
-
-        startX = 0;
-        startY = 0;
-
-        if (
-          Math.abs(dx) < 70 ||
-          Math.abs(dx) < Math.abs(dy)
-        ) {
-          return;
-        }
-
-        const index =
-          TABS.indexOf(tab);
-
-        if (dx < 0) {
-          const next =
-            TABS[
-              Math.min(
-                TABS.length - 1,
-                index + 1
-              )
-            ];
-
-          changeTab(next);
-        } else {
-          const next =
-            TABS[
-              Math.max(0, index - 1)
-            ];
-
-          changeTab(next);
-        }
-      }
-    };
+        ]
+      );
+    }
   }
 
-  const swipe = swipeHandlers();
+  function touchStart(e) {
+    const touch =
+      e.touches?.[0];
+
+    if (!touch) return;
+
+    window.__chatdoTouchStart = {
+      x: touch.clientX,
+      y: touch.clientY
+    };
+  }
 
   return (
-    <div className="app">
+    <div
+      className="app"
+      onTouchStart={
+        touchStart
+      }
+      onTouchEnd={
+        handleSwipe
+      }
+    >
+
       <div className="topbar">
+
         <div className="brand">
+
           <div className="brandMark">
             C
           </div>
+
           Chatdo
+
         </div>
 
+
         <div className="topActions">
+
           <button
             className="iconBtn"
-            title="Profile / Settings"
+            title="Settings"
             onClick={() =>
-              changeTab("settings")
+              setShowSettings(
+                !showSettings
+              )
             }
           >
             ⚙
           </button>
 
-          <button
-            className="iconBtn"
-            title="Logout"
-            onClick={() =>
+        </div>
+
+      </div>
+
+
+      <div className="mainWrap">
+
+        {!chatUser &&
+          !showSettings && (
+            <div className="nav">
+
+              <button
+                className={
+                  tab === "chats"
+                    ? "active"
+                    : ""
+                }
+                onClick={() =>
+                  setTab("chats")
+                }
+              >
+                Chats
+              </button>
+
+              <button
+                className={
+                  tab === "stories"
+                    ? "active"
+                    : ""
+                }
+                onClick={() =>
+                  setTab("stories")
+                }
+              >
+                Stories
+              </button>
+
+              <button
+                className={
+                  tab === "calls"
+                    ? "active"
+                    : ""
+                }
+                onClick={() =>
+                  setTab("calls")
+                }
+              >
+                Calls
+              </button>
+
+              <button
+                className={
+                  tab === "people"
+                    ? "active"
+                    : ""
+                }
+                onClick={() =>
+                  setTab("people")
+                }
+              >
+                People
+              </button>
+
+            </div>
+          )}
+
+
+        {showSettings ? (
+          <Settings
+            uid={uid}
+            profile={profile}
+            onLogout={() =>
               signOut(auth)
             }
-          >
-            ⇥
-          </button>
-        </div>
-      </div>
-
-      <div
-        className="mainWrap"
-        {...swipe}
-      >
-        <div className="nav">
-          <button
-            className={
-              tab === "chats"
-                ? "active"
-                : ""
-            }
-            onClick={() =>
-              changeTab("chats")
-            }
-          >
-            💬 Chats
-          </button>
-
-          <button
-            className={
-              tab === "stories"
-                ? "active"
-                : ""
-            }
-            onClick={() =>
-              changeTab("stories")
-            }
-          >
-            ◉ Stories
-          </button>
-
-          <button
-            className={
-              tab === "calls"
-                ? "active"
-                : ""
-            }
-            onClick={() =>
-              changeTab("calls")
-            }
-          >
-            ☎ Calls
-          </button>
-
-          <button
-            className={
-              tab === "people"
-                ? "active"
-                : ""
-            }
-            onClick={() =>
-              changeTab("people")
-            }
-          >
-            👥 People
-          </button>
-        </div>
-
-        {openChat ? (
+          />
+        ) : chatUser ? (
           <div className="page">
+
             <Chat
-              user={user}
-              other={openChat.other}
-              chat={openChat.chat}
-              onBack={() =>
-                setOpenChat(null)
+              uid={uid}
+              otherUser={
+                chatUser
+              }
+              onBack={
+                closeChat
               }
               onStartCall={
-                callManager.startCall
+                startCall
               }
             />
+
           </div>
+        ) : tab ===
+          "chats" ? (
+          <Chats
+            uid={uid}
+            onOpenChat={
+              openChat
+            }
+          />
+        ) : tab ===
+          "stories" ? (
+          <Stories
+            uid={uid}
+            profile={
+              profile
+            }
+          />
+        ) : tab ===
+          "calls" ? (
+          <CallsPage
+            uid={uid}
+            onStartCall={
+              startCall
+            }
+          />
         ) : (
-          <>
-            {tab === "chats" && (
-              <Chats
-                user={user}
-                users={users}
-                onOpenChat={(other, chat) =>
-                  setOpenChat({
-                    other,
-                    chat
-                  })
-                }
-                onStartCall={
-                  callManager.startCall
-                }
-              />
-            )}
-
-            {tab === "stories" && (
-              <Stories
-                user={user}
-                users={users}
-              />
-            )}
-
-            {tab === "calls" && (
-              <CallsPage
-                user={user}
-                users={users}
-                onStartCall={
-                  callManager.startCall
-                }
-              />
-            )}
-
-            {tab === "people" && (
-              <People
-                user={user}
-                users={users}
-                me={currentUser}
-                onOpenChat={(other) =>
-                  setOpenChat({
-                    other,
-                    chat: {
-                      id: chatIdFor(
-                        user.uid,
-                        other.uid
-                      ),
-                      members: [
-                        user.uid,
-                        other.uid
-                      ]
-                    }
-                  })
-                }
-              />
-            )}
-
-            {tab === "settings" && (
-              <Settings
-                user={user}
-                me={currentUser}
-                onClose={() =>
-                  changeTab("chats")
-                }
-              />
-            )}
-          </>
+          <People
+            uid={uid}
+            onOpenChat={
+              openChat
+            }
+          />
         )}
+
       </div>
 
-      <CallUI manager={callManager} />
+
+      <CallUI
+        callManager={
+          callManager
+        }
+      />
+
     </div>
   );
 }
+
 
 /* =========================================================
    APP
@@ -4775,45 +5228,35 @@ function SocialApp({ user }) {
 
 function App() {
   const [user, setUser] =
-    useState(null);
-
-  const [loading, setLoading] =
-    useState(true);
+    useState(undefined);
 
   useEffect(() => {
     if (!auth) {
-      setLoading(false);
+      setUser(null);
       return;
     }
 
-    const unsub =
+    const unsubscribe =
       onAuthStateChanged(
         auth,
         (currentUser) => {
-          setUser(currentUser);
-          setLoading(false);
+          setUser(
+            currentUser
+          );
         }
       );
 
-    return () => unsub();
+    return () =>
+      unsubscribe();
   }, []);
 
-  if (loading) {
+  if (user === undefined) {
     return (
-      <>
-        <Styles />
-        <div
-          style={{
-            minHeight: "100vh",
-            display: "grid",
-            placeItems: "center",
-            background: "#f8fafc",
-            color: "#64748b"
-          }}
-        >
+      <div className="authPage">
+        <div>
           Loading Chatdo...
         </div>
-      </>
+      </div>
     );
   }
 
@@ -4829,10 +5272,14 @@ function App() {
   return (
     <>
       <Styles />
-      <SocialApp user={user} />
+
+      <SocialApp
+        uid={user.uid}
+      />
     </>
   );
 }
+
 
 /* =========================================================
    ROOT
@@ -4841,7 +5288,9 @@ function App() {
 const rootElement =
   document.getElementById("root");
 
-createRoot(rootElement).render(
+createRoot(
+  rootElement
+).render(
   <React.StrictMode>
     <App />
   </React.StrictMode>
