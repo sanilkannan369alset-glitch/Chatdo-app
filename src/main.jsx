@@ -1242,15 +1242,46 @@ function Stories({user}){
     );
 
     return onSnapshot(
-      q,
-      s=>
-        setStories(
-          s.docs.map(d=>({
-            id:d.id,
-            ...d.data()
-          }))
+  q,
+  async s=>{
+    const now=Date.now();
+
+    const allStories=s.docs.map(d=>({
+      id:d.id,
+      ...d.data()
+    }));
+
+    const activeStories=allStories.filter(story=>{
+      if(!story.expiresAt)return true;
+
+      const expiry=story.expiresAt.toMillis
+        ? story.expiresAt.toMillis()
+        : new Date(story.expiresAt).getTime();
+
+      return expiry>now;
+    });
+
+    const expiredStories=allStories.filter(story=>{
+      if(!story.expiresAt)return false;
+
+      const expiry=story.expiresAt.toMillis
+        ? story.expiresAt.toMillis()
+        : new Date(story.expiresAt).getTime();
+
+      return expiry<=now;
+    });
+
+    await Promise.all(
+      expiredStories.map(story=>
+        deleteDoc(
+          doc(db,"stories",story.id)
         )
+      )
     );
+
+    setStories(activeStories);
+  }
+);
 
   },[]);
 
