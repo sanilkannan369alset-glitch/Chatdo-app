@@ -1,13 +1,16 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 
-import { initializeApp } from "firebase/app";
+import {
+  initializeApp
+} from "firebase/app";
 
 import {
   getAuth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signOut,
   updateProfile
 } from "firebase/auth";
@@ -15,19 +18,22 @@ import {
 import {
   getFirestore,
   collection,
-  addDoc,
-  setDoc,
+  collectionGroup,
   doc,
-  query,
-  orderBy,
-  onSnapshot,
-  serverTimestamp,
+  getDoc,
+  getDocs,
+  setDoc,
   updateDoc,
+  addDoc,
   deleteDoc,
-  arrayUnion,
-  arrayRemove,
+  onSnapshot,
+  query,
+  where,
+  orderBy,
   limit,
-  Timestamp
+  serverTimestamp,
+  arrayUnion,
+  arrayRemove
 } from "firebase/firestore";
 
 import {
@@ -36,7 +42,6 @@ import {
   uploadBytes,
   getDownloadURL
 } from "firebase/storage";
-
 
 /* =========================================================
    FIREBASE
@@ -51,23 +56,109 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
+let firebaseApp;
+let auth;
+let db;
+let storage;
 
-const usersRef = collection(db, "users");
-const storiesRef = collection(db, "stories");
-
+try {
+  firebaseApp = initializeApp(firebaseConfig);
+  auth = getAuth(firebaseApp);
+  db = getFirestore(firebaseApp);
+  storage = getStorage(firebaseApp);
+} catch (e) {
+  console.error("Firebase initialization error:", e);
+}
 
 /* =========================================================
-   STYLES
+   HELPERS
+========================================================= */
+
+const TABS = ["chats", "stories", "calls", "people"];
+
+function timeText(value) {
+  if (!value) return "";
+  const d =
+    typeof value?.toDate === "function"
+      ? value.toDate()
+      : new Date(value);
+
+  if (Number.isNaN(d.getTime())) return "";
+
+  return d.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function dateTimeText(value) {
+  if (!value) return "";
+  const d =
+    typeof value?.toDate === "function"
+      ? value.toDate()
+      : new Date(value);
+
+  if (Number.isNaN(d.getTime())) return "";
+
+  return d.toLocaleString([], {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function normalizePhone(value = "") {
+  return value.replace(/[^\d]/g, "");
+}
+
+function chatIdFor(a, b) {
+  return [a, b].sort().join("_");
+}
+
+function otherMember(chat, uid) {
+  return (chat.members || []).find((x) => x !== uid);
+}
+
+function safeName(user) {
+  return (
+    user?.displayName ||
+    user?.username ||
+    user?.name ||
+    user?.email?.split("@")[0] ||
+    "User"
+  );
+}
+
+function messageStatus(message, uid) {
+  if (message.senderId !== uid) return "";
+
+  if ((message.seenBy || []).includes(uid) === false) {
+    if ((message.seenBy || []).some((x) => x !== uid)) return "seen";
+  }
+
+  if ((message.deliveredTo || []).some((x) => x !== uid)) {
+    return "delivered";
+  }
+
+  return "sent";
+}
+
+function formatMessagePreview(message) {
+  if (!message) return "";
+  if (message.type === "image") return "📷 Photo";
+  if (message.type === "video") return "🎥 Video";
+  if (message.type === "audio") return "🎤 Voice message";
+  return message.text || "";
+}
+
+/* =========================================================
+   GLOBAL STYLES
 ========================================================= */
 
 function Styles() {
   return (
     <style>{`
-
       * {
         box-sizing: border-box;
       }
@@ -76,25 +167,17 @@ function Styles() {
       body,
       #root {
         margin: 0;
+        min-height: 100%;
         width: 100%;
-        height: 100%;
-        font-family:
-          Inter,
-          system-ui,
-          -apple-system,
-          BlinkMacSystemFont,
-          "Segoe UI",
-          sans-serif;
-      }
-
-      body {
-        background: #efeae2;
+        font-family: Inter, Arial, Helvetica, sans-serif;
+        background: #f4f7fb;
+        color: #172033;
       }
 
       button,
       input,
       textarea {
-        font-family: inherit;
+        font: inherit;
       }
 
       button {
@@ -102,973 +185,1094 @@ function Styles() {
       }
 
       .app {
-        width: 100%;
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-        background: #efeae2;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #f7f9fc, #edf3fa);
       }
 
-      /* TOP BAR */
-
-      .top {
-        height: 60px;
-        flex: none;
-        background: #075e54;
-        color: white;
+      .topbar {
+        height: 64px;
+        background: rgba(255,255,255,.96);
+        border-bottom: 1px solid #e4e9f1;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 15px;
+        padding: 0 18px;
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        backdrop-filter: blur(10px);
       }
 
       .brand {
-        font-size: 22px;
-        font-weight: 800;
-      }
-
-      .brand small {
-        display: block;
-        font-size: 10px;
-        font-weight: 500;
-        opacity: .8;
-      }
-
-      .logout {
-        border: 0;
-        background: rgba(255,255,255,.15);
-        color: white;
-        border-radius: 18px;
-        padding: 8px 14px;
-      }
-
-      /* TABS */
-
-      .tabs {
-        height: 50px;
-        flex: none;
-        display: flex;
-        background: #075e54;
-        color: rgba(255,255,255,.7);
-      }
-
-      .tab {
-        flex: 1;
-        border: 0;
-        background: transparent;
-        color: inherit;
-        font-weight: 700;
-        border-bottom: 3px solid transparent;
-      }
-
-      .tab.active {
-        color: white;
-        border-bottom-color: white;
-      }
-
-      .main {
-        flex: 1;
-        min-height: 0;
-        overflow: hidden;
-      }
-
-      /* CHAT LAYOUT */
-
-      .chat-layout {
-        width: 100%;
-        height: 100%;
-        display: grid;
-        grid-template-columns: 310px 1fr;
-      }
-
-      .sidebar {
-        background: white;
-        border-right: 1px solid #ddd;
-        overflow-y: auto;
-      }
-
-      .side-title {
-        padding: 16px;
-        font-size: 20px;
-        font-weight: 800;
-        border-bottom: 1px solid #eee;
-      }
-
-      .person {
-        width: 100%;
-        border: 0;
-        background: white;
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 11px 14px;
-        text-align: left;
-        border-bottom: 1px solid #f1f1f1;
+        font-weight: 800;
+        font-size: 22px;
+        letter-spacing: -.5px;
       }
 
-      .person:hover,
-      .person.sel {
-        background: #e9f7f4;
+      .brandMark {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        background: #111827;
+        color: white;
+        font-size: 17px;
       }
 
-      .avatar {
-        width: 44px;
-        height: 44px;
-        flex: none;
-        border-radius: 50%;
-        background: #d9fdd3;
-        color: #075e54;
+      .topActions {
         display: flex;
         align-items: center;
-        justify-content: center;
+        gap: 8px;
+      }
+
+      .iconBtn {
+        width: 40px;
+        height: 40px;
+        border: 1px solid #e1e6ee;
+        background: white;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        color: #334155;
+        transition: .18s;
+      }
+
+      .iconBtn:hover {
+        background: #f1f5f9;
+        transform: translateY(-1px);
+      }
+
+      .mainWrap {
+        width: min(1180px, 100%);
+        margin: auto;
+        padding: 18px;
+      }
+
+      .nav {
+        display: flex;
+        gap: 7px;
+        padding: 7px;
+        background: white;
+        border: 1px solid #e4e9f1;
+        border-radius: 17px;
+        margin-bottom: 16px;
+        overflow-x: auto;
+        position: sticky;
+        top: 72px;
+        z-index: 20;
+      }
+
+      .nav button {
+        flex: 1;
+        min-width: 90px;
+        border: 0;
+        padding: 11px 13px;
+        border-radius: 12px;
+        background: transparent;
+        color: #64748b;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .nav button.active {
+        background: #111827;
+        color: white;
+      }
+
+      .page {
+        background: white;
+        border: 1px solid #e3e8f0;
+        border-radius: 20px;
+        min-height: calc(100vh - 160px);
+        overflow: hidden;
+        box-shadow: 0 10px 35px rgba(15,23,42,.05);
+      }
+
+      .pageHead {
+        padding: 18px;
+        border-bottom: 1px solid #edf0f5;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .pageTitle {
+        font-size: 20px;
         font-weight: 800;
       }
 
-      .info {
+      .subtle {
+        color: #718096;
+        font-size: 13px;
+      }
+
+      .searchBox {
+        display: flex;
+        gap: 8px;
+        padding: 14px 18px;
+        border-bottom: 1px solid #edf0f5;
+      }
+
+      .input {
+        width: 100%;
+        border: 1px solid #dce2ea;
+        background: #fafbfc;
+        padding: 11px 13px;
+        border-radius: 12px;
+        outline: none;
+      }
+
+      .input:focus,
+      textarea:focus {
+        border-color: #94a3b8;
+        background: white;
+      }
+
+      .primary {
+        border: 0;
+        background: #111827;
+        color: white;
+        padding: 10px 14px;
+        border-radius: 11px;
+        font-weight: 700;
+      }
+
+      .secondary {
+        border: 1px solid #dbe1e9;
+        background: white;
+        color: #334155;
+        padding: 9px 13px;
+        border-radius: 11px;
+        font-weight: 700;
+      }
+
+      .danger {
+        border: 0;
+        background: #fee2e2;
+        color: #b91c1c;
+        padding: 9px 13px;
+        border-radius: 11px;
+        font-weight: 700;
+      }
+
+      .empty {
+        padding: 45px 20px;
+        text-align: center;
+        color: #94a3b8;
+      }
+
+      /* AUTH */
+
+      .authPage {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 20px;
+        background:
+          radial-gradient(circle at top left, #e0e7ff, transparent 40%),
+          radial-gradient(circle at bottom right, #dbeafe, transparent 40%),
+          #f8fafc;
+      }
+
+      .authCard {
+        width: min(430px, 100%);
+        background: white;
+        padding: 30px;
+        border-radius: 24px;
+        box-shadow: 0 25px 70px rgba(15,23,42,.12);
+        border: 1px solid #e6eaf0;
+      }
+
+      .authLogo {
+        text-align: center;
+        margin-bottom: 25px;
+      }
+
+      .authLogo .brandMark {
+        margin: auto;
+        width: 52px;
+        height: 52px;
+        font-size: 24px;
+      }
+
+      .authLogo h1 {
+        margin: 12px 0 5px;
+      }
+
+      .authForm {
+        display: grid;
+        gap: 12px;
+      }
+
+      .authError {
+        background: #fff1f2;
+        color: #be123c;
+        padding: 10px;
+        border-radius: 10px;
+        font-size: 13px;
+      }
+
+      .linkBtn {
+        border: 0;
+        background: none;
+        color: #2563eb;
+        font-weight: 700;
+        padding: 0;
+      }
+
+      /* CHAT LIST */
+
+      .chatList {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .chatRow {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 13px 16px;
+        border-bottom: 1px solid #f0f2f6;
+        transition: .15s;
+      }
+
+      .chatRow:hover {
+        background: #f8fafc;
+      }
+
+      .chatRowMain {
+        flex: 1;
         min-width: 0;
       }
 
-      .name {
-        font-size: 15px;
-        font-weight: 700;
+      .chatRowTop {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+
+      .chatName {
+        font-weight: 800;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
 
-      .online {
-        font-size: 11px;
-        color: #25d366;
+      .chatPreview {
+        color: #718096;
+        font-size: 13px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
-      .offline {
+      .chatTime {
         font-size: 11px;
-        color: #777;
+        color: #94a3b8;
+        white-space: nowrap;
       }
 
-      /* CHAT */
+      .chatActions {
+        display: flex;
+        gap: 5px;
+      }
 
-      .chat {
+      .miniBtn {
+        width: 32px;
+        height: 32px;
+        border: 1px solid #e3e7ee;
+        background: white;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+      }
+
+      .pinOn {
+        background: #fff7ed;
+        border-color: #fed7aa;
+      }
+
+      /* AVATAR */
+
+      .avatar {
+        width: 46px;
+        height: 46px;
+        flex: 0 0 46px;
+        border-radius: 50%;
+        overflow: hidden;
+        background: #e2e8f0;
+        display: grid;
+        place-items: center;
+        font-weight: 800;
+        color: #475569;
+      }
+
+      .avatar.small {
+        width: 38px;
+        height: 38px;
+        flex-basis: 38px;
+        font-size: 13px;
+      }
+
+      .avatar img {
+        width: 100%;
         height: 100%;
-        min-width: 0;
+        object-fit: cover;
+      }
+
+      /* CHAT WINDOW */
+
+      .chatPage {
         display: flex;
         flex-direction: column;
+        height: calc(100vh - 180px);
+        min-height: 560px;
       }
 
-      .chat-head {
-        height: 60px;
-        flex: none;
-        background: #f0f2f5;
-        border-bottom: 1px solid #ddd;
+      .chatHeader {
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 7px 12px;
+        padding: 12px 15px;
+        border-bottom: 1px solid #edf0f5;
       }
 
-      .back {
-        display: none;
-        border: 0;
-        background: transparent;
-        font-size: 23px;
-        color: #54656f;
-      }
-
-      .chat-head-info {
+      .chatHeaderInfo {
+        flex: 1;
         min-width: 0;
       }
 
-      .chat-status {
-        font-size: 11px;
-        color: #667781;
+      .chatHeaderName {
+        font-weight: 800;
+      }
+
+      .chatHeaderStatus {
+        font-size: 12px;
+        color: #22c55e;
       }
 
       .messages {
         flex: 1;
-        min-height: 0;
         overflow-y: auto;
-        padding: 12px 5%;
-        background: #efeae2;
-        background-image:
-          radial-gradient(
-            rgba(0,0,0,.035) 1px,
-            transparent 1px
-          );
-        background-size: 18px 18px;
+        padding: 18px;
+        background:
+          radial-gradient(circle at 10% 10%, rgba(226,232,240,.4), transparent 25%),
+          #f8fafc;
       }
 
-      .row {
+      .messageLine {
         display: flex;
-        margin: 5px 0;
+        margin: 6px 0;
       }
 
-      .row.mine {
+      .messageLine.mine {
         justify-content: flex-end;
-      }
-
-      .row.other {
-        justify-content: flex-start;
       }
 
       .bubble {
-        position: relative;
-        max-width: min(78%,520px);
-        min-width: 60px;
-        padding: 8px 9px 5px;
-        border-radius: 9px;
-        box-shadow: 0 1px 1px rgba(0,0,0,.12);
-        word-break: break-word;
+        max-width: min(76%, 580px);
+        border-radius: 17px;
+        padding: 9px 11px;
+        background: white;
+        border: 1px solid #e5e9ef;
+        box-shadow: 0 2px 7px rgba(15,23,42,.04);
       }
 
       .mine .bubble {
-        background: #d9fdd3;
-        border-top-right-radius: 2px;
+        background: #111827;
+        color: white;
+        border-color: #111827;
       }
 
-      .other .bubble {
-        background: white;
-        border-top-left-radius: 2px;
-      }
-
-      .text {
-        font-size: 15px;
-        line-height: 1.45;
+      .bubbleText {
         white-space: pre-wrap;
+        word-break: break-word;
+        line-height: 1.42;
       }
 
-      .edited {
-        font-size: 9px;
-        color: #667781;
-        margin-left: 5px;
-        font-style: italic;
+      .messageMedia {
+        max-width: 280px;
+        max-height: 360px;
+        border-radius: 12px;
+        display: block;
       }
 
-      .time-line {
+      .messageMeta {
         display: flex;
-        align-items: center;
         justify-content: flex-end;
+        align-items: center;
+        gap: 5px;
+        margin-top: 4px;
+        font-size: 10px;
+        opacity: .65;
+      }
+
+      .ticks {
+        font-weight: 900;
+        letter-spacing: -3px;
+        display: inline-block;
+        margin-right: 2px;
+      }
+
+      .ticks.seen {
+        filter: blur(.7px);
+        opacity: .6;
+      }
+
+      .messageMenu {
+        display: flex;
         gap: 4px;
         margin-top: 5px;
       }
 
-      .time {
-        font-size: 9px;
-        color: #667781;
-      }
-
-      .tick {
-        font-size: 13px;
-        font-weight: 700;
-        color: #667781;
-      }
-
-      .eye {
-        width: 14px;
-        height: 9px;
-        display: inline-block;
-        position: relative;
-        border: 1.5px solid currentColor;
-        border-radius: 80% 20% 80% 20%;
-        transform: rotate(45deg);
-        margin-left: 2px;
-      }
-
-      .eye:after {
-        content: "";
-        position: absolute;
-        width: 3px;
-        height: 3px;
-        background: currentColor;
-        border-radius: 50%;
-        left: 4px;
-        top: 2px;
-      }
-
-      .image {
-        display: block;
-        width: 100%;
-        max-width: 300px;
-        max-height: 320px;
-        object-fit: cover;
+      .messageMenu button {
+        border: 0;
+        background: rgba(255,255,255,.15);
+        color: inherit;
         border-radius: 7px;
+        padding: 3px 6px;
+        font-size: 11px;
       }
 
-      .media {
-        display: block;
-        width: 100%;
-        max-width: 320px;
-        border-radius: 8px;
-        margin-top: 4px;
+      .messageActionsOutside {
+        display: flex;
+        gap: 3px;
+        align-items: center;
+        margin: 0 5px;
       }
 
-      .heart {
+      .messageActionsOutside button {
         border: 0;
         background: transparent;
-        color: #777;
-        font-size: 12px;
-        padding: 3px 0 0;
-      }
-
-      .heart.liked {
-        color: #e53935;
-      }
-
-      /* MESSAGE MENU */
-
-      .menu {
-        position: absolute;
-        right: 4px;
-        top: 4px;
-        z-index: 5;
-      }
-
-      .menu > button {
-        width: 27px;
-        height: 27px;
-        border: 0;
-        border-radius: 50%;
-        background: rgba(255,255,255,.75);
-        font-size: 17px;
-        color: #54656f;
-      }
-
-      .menu-panel {
-        position: absolute;
-        right: 0;
-        top: 29px;
-        width: 195px;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 4px 18px rgba(0,0,0,.2);
-        overflow: hidden;
-        z-index: 30;
-      }
-
-      .menu-panel button {
-        width: 100%;
-        border: 0;
-        background: white;
-        text-align: left;
-        padding: 11px 13px;
-      }
-
-      .menu-panel button:hover {
-        background: #f2f2f2;
-      }
-
-      .deleted {
-        color: #667781;
-        font-style: italic;
-      }
-
-      .editbox {
-        display: flex;
-        gap: 4px;
-        flex-wrap: wrap;
-      }
-
-      .editbox input {
-        min-width: 180px;
-        flex: 1;
-        border: 1px solid #aaa;
-        border-radius: 7px;
-        padding: 7px;
-      }
-
-      .save {
-        border: 0;
-        background: #128c7e;
-        color: white;
-        border-radius: 7px;
-        padding: 7px 10px;
-      }
-
-      .cancel {
-        border: 0;
-        background: #777;
-        color: white;
-        border-radius: 7px;
-        padding: 7px 10px;
-      }
-
-      /* TYPING */
-
-      .typing {
-        width: max-content;
-        background: white;
-        border-radius: 8px;
-        padding: 7px 11px;
-        color: #667781;
-        font-size: 12px;
-        margin: 5px 0;
-      }
-
-      /* COMPOSER */
-
-      .composer-wrap {
-        position: relative;
-        flex: none;
+        color: #64748b;
       }
 
       .composer {
-        min-height: 60px;
-        background: #f0f2f5;
-        border-top: 1px solid #ddd;
         display: flex;
-        align-items: center;
-        gap: 3px;
-        padding: 6px;
+        gap: 7px;
+        padding: 10px;
+        border-top: 1px solid #e9edf3;
+        background: white;
       }
 
-      .icon,
-      .file-label {
-        width: 40px;
-        height: 40px;
-        border: 0;
-        background: transparent;
-        color: #54656f;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 20px;
-        flex: none;
-      }
-
-      .icon:hover,
-      .file-label:hover {
-        background: #e2e6e9;
-      }
-
-      .file-label input {
-        display: none;
-      }
-
-      .textbox {
+      .composer input[type="text"] {
         flex: 1;
-        min-width: 0;
-        height: 42px;
-        border: 0;
+        border: 1px solid #dce2ea;
+        border-radius: 12px;
+        padding: 11px;
         outline: none;
-        border-radius: 21px;
-        padding: 0 14px;
+        min-width: 0;
       }
 
-      .send {
+      .composerIcon {
         width: 42px;
         height: 42px;
-        border: 0;
-        border-radius: 50%;
-        background: #128c7e;
-        color: white;
-        font-size: 19px;
-      }
-
-      .recording {
-        background: #fff3f3;
-        color: #c62828;
-        padding: 8px 12px;
-        font-size: 12px;
-        border-top: 1px solid #ddd;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      /* PAGES */
-
-      .page {
-        height: 100%;
-        overflow-y: auto;
-        padding: 14px;
-        background: #efeae2;
-      }
-
-      .card {
+        border-radius: 11px;
+        border: 1px solid #dfe4eb;
         background: white;
-        border-radius: 12px;
-        padding: 15px;
-        margin-bottom: 14px;
-        box-shadow: 0 1px 2px rgba(0,0,0,.08);
-      }
-
-      .input {
-        width: 100%;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 11px;
-        margin: 5px 0;
-        font-size: 15px;
-        outline: none;
-      }
-
-      .textarea {
-        width: 100%;
-        min-height: 90px;
-        resize: vertical;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 11px;
-        font-size: 15px;
-        outline: none;
-      }
-
-      .primary {
-        border: 0;
-        background: #128c7e;
-        color: white;
-        border-radius: 8px;
-        padding: 10px 15px;
-      }
-
-      .danger {
-        border: 0;
-        background: #ffe5e5;
-        color: #c62828;
-        border-radius: 7px;
-        padding: 7px 10px;
-      }
-
-      .secondary {
-        border: 0;
-        background: #eee;
-        color: #444;
-        border-radius: 7px;
-        padding: 7px 10px;
-      }
-
-      /* STORIES */
-
-      .stories {
         display: grid;
-        grid-template-columns:
-          repeat(auto-fill,minmax(190px,1fr));
-        gap: 14px;
+        place-items: center;
       }
 
-      .story {
-        background: white;
-        border-radius: 12px;
-        padding: 10px;
-        overflow: hidden;
-      }
-
-      .story-card {
-        aspect-ratio: 9 / 16;
-        border-radius: 10px;
-        background: #f2f2f2;
-        overflow: hidden;
-        position: relative;
-        display: flex;
-        flex-direction: column;
-      }
-
-      .story-card img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-
-      .story-overlay {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        padding: 12px;
+      .sendBtn {
+        width: 44px;
+        height: 42px;
+        border: 0;
+        border-radius: 11px;
+        background: #111827;
         color: white;
-        background:
-          linear-gradient(
-            transparent,
-            rgba(0,0,0,.8)
-          );
       }
 
-      .story-text {
-        font-size: 14px;
-        white-space: pre-wrap;
-      }
-
-      .story-author {
-        display: flex;
-        align-items: center;
-        gap: 7px;
-        margin-bottom: 7px;
-      }
-
-      .my-story {
+      .typing {
+        padding: 5px 18px;
         font-size: 11px;
-        color: #128c7e;
-        font-weight: 700;
-      }
-
-      .story-actions {
-        display: flex;
-        align-items: center;
-        gap: 7px;
-        margin-top: 7px;
+        color: #64748b;
+        background: #f8fafc;
       }
 
       /* PEOPLE */
 
-      .search {
-        position: relative;
-        margin-bottom: 12px;
-      }
-
-      .search input {
-        padding-left: 38px;
-      }
-
-      .search span {
-        position: absolute;
-        left: 12px;
-        top: 13px;
-        color: #777;
-      }
-
-      .people-result {
-        background: white;
-        border-radius: 10px;
-        padding: 11px;
-        margin-bottom: 8px;
+      .personRow {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
+        padding: 13px 17px;
+        border-bottom: 1px solid #f0f2f6;
       }
 
-      .people-actions {
-        margin-left: auto;
+      .personInfo {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .personName {
+        font-weight: 800;
+      }
+
+      .personBio {
+        color: #718096;
+        font-size: 12px;
+        margin-top: 3px;
+      }
+
+      .personActions {
         display: flex;
-        gap: 5px;
+        gap: 6px;
         flex-wrap: wrap;
+        justify-content: flex-end;
       }
 
-      .request {
-        background: #e9f7f4;
-        color: #075e54;
-        border: 0;
-        border-radius: 7px;
-        padding: 7px 10px;
+      .history {
+        padding: 12px 17px;
+        border-bottom: 1px solid #edf0f5;
       }
 
-      .muted {
-        color: #667781;
+      .historyTitle {
+        font-size: 12px;
+        color: #64748b;
+        font-weight: 800;
+        margin-bottom: 7px;
+      }
+
+      .historyItems {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .historyChip {
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        border-radius: 20px;
+        padding: 6px 9px;
         font-size: 12px;
       }
 
-      /* AUTH */
+      /* STORIES */
 
-      .auth {
-        height: 100vh;
+      .storyGrid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+        gap: 12px;
+        padding: 17px;
+      }
+
+      .storyCard {
+        height: 235px;
+        border-radius: 18px;
+        overflow: hidden;
+        position: relative;
+        cursor: pointer;
+        background: #e2e8f0;
+        border: 1px solid #dbe1e9;
+      }
+
+      .storyCard img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .storyOverlay {
+        position: absolute;
+        inset: auto 0 0 0;
+        padding: 35px 10px 10px;
+        color: white;
+        background: linear-gradient(transparent, rgba(0,0,0,.72));
+      }
+
+      .storyName {
+        font-weight: 800;
+        font-size: 13px;
+      }
+
+      .addStory {
+        height: 235px;
+        border: 2px dashed #cbd5e1;
+        background: #f8fafc;
+        border-radius: 18px;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        color: #475569;
+        cursor: pointer;
+      }
+
+      .plus {
+        width: 50px;
+        height: 50px;
+        margin: auto auto 8px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: #111827;
+        color: white;
+        font-size: 28px;
+      }
+
+      /* STORY FULL SCREEN */
+
+      .storyViewer {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        background: rgba(0,0,0,.94);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 15px;
+      }
+
+      .storyViewerClose {
+        position: fixed;
+        top: 18px;
+        right: 18px;
+        width: 42px;
+        height: 42px;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(255,255,255,.15);
+        color: white;
+        font-size: 22px;
+        z-index: 210;
+      }
+
+      .storyFull {
+        height: min(92vh, 800px);
+        aspect-ratio: 9 / 16;
+        max-width: 94vw;
+        border-radius: 20px;
+        overflow: hidden;
+        position: relative;
+        background: #111827;
+      }
+
+      .storyFull img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .storyTextOnly {
+        width: 100%;
+        height: 100%;
+        padding: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        color: white;
+        font-size: 25px;
+        font-weight: 700;
+      }
+
+      .storyFullBottom {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 50px 16px 18px;
+        color: white;
+        background: linear-gradient(transparent, rgba(0,0,0,.75));
+      }
+
+      /* SETTINGS */
+
+      .settings {
+        padding: 18px;
+        display: grid;
+        gap: 18px;
+      }
+
+      .profileBox {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px;
+        border: 1px solid #e3e8f0;
+        border-radius: 17px;
+        background: #fafbfc;
+      }
+
+      .profileBig {
+        width: 78px;
+        height: 78px;
+        flex: 0 0 78px;
+        border-radius: 50%;
+        overflow: hidden;
+        background: #e2e8f0;
+        display: grid;
+        place-items: center;
+        font-size: 25px;
+        font-weight: 800;
+      }
+
+      .profileBig img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .settingsSection {
+        border: 1px solid #e3e8f0;
+        border-radius: 17px;
+        overflow: hidden;
+      }
+
+      .settingsTitle {
+        padding: 13px 15px;
+        background: #f8fafc;
+        font-weight: 800;
+        border-bottom: 1px solid #e8edf3;
+      }
+
+      .settingsBody {
+        padding: 15px;
+        display: grid;
+        gap: 11px;
+      }
+
+      .fieldLabel {
+        font-size: 12px;
+        color: #64748b;
+        font-weight: 800;
+        margin-bottom: -4px;
+      }
+
+      textarea {
+        resize: vertical;
+        min-height: 80px;
+        border: 1px solid #dce2ea;
+        background: #fafbfc;
+        padding: 11px 13px;
+        border-radius: 12px;
+        outline: none;
+      }
+
+      /* CALL */
+
+      .callOverlay {
+        position: fixed;
+        inset: 0;
+        z-index: 180;
+        background: rgba(15,23,42,.94);
+        color: white;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 20px;
-        background: #efeae2;
       }
 
-      .auth-card {
-        width: min(420px,100%);
-        background: white;
-        padding: 28px;
-        border-radius: 15px;
-        box-shadow: 0 5px 25px rgba(0,0,0,.12);
+      .callPanel {
+        width: min(850px, 100%);
+        max-height: 94vh;
+        overflow: auto;
+        background: #111827;
+        border-radius: 24px;
+        padding: 20px;
+        text-align: center;
       }
 
-      .auth-card h1 {
-        color: #075e54;
+      .callName {
+        font-size: 22px;
+        font-weight: 800;
+        margin-bottom: 5px;
       }
 
-      .error {
-        background: #fff0ef;
-        color: #b42318;
-        padding: 10px;
-        border-radius: 8px;
-        margin-top: 10px;
+      .callType {
+        color: #cbd5e1;
+        font-size: 13px;
+        margin-bottom: 15px;
       }
 
-      .link {
+      .videoArea {
+        position: relative;
+        background: #020617;
+        border-radius: 18px;
+        overflow: hidden;
+        min-height: 350px;
+      }
+
+      .remoteVideo {
         width: 100%;
-        border: 0;
-        background: transparent;
-        color: #128c7e;
-        padding: 10px;
-        margin-top: 8px;
+        height: 60vh;
+        max-height: 650px;
+        object-fit: cover;
+        background: #020617;
       }
 
-      .empty {
-        height: 100%;
+      .localVideo {
+        position: absolute;
+        right: 12px;
+        bottom: 12px;
+        width: 150px;
+        height: 210px;
+        object-fit: cover;
+        border-radius: 13px;
+        border: 2px solid rgba(255,255,255,.6);
+        background: #020617;
+      }
+
+      .callControls {
         display: flex;
-        flex-direction: column;
-        align-items: center;
         justify-content: center;
-        color: #667781;
-        background: #efeae2;
+        gap: 10px;
+        margin-top: 16px;
       }
 
-      .empty-icon {
-        font-size: 50px;
+      .callControl {
+        width: 50px;
+        height: 50px;
+        border: 0;
+        border-radius: 50%;
+        background: #334155;
+        color: white;
+        font-size: 20px;
       }
 
-      /* MOBILE */
+      .callEnd {
+        background: #dc2626;
+      }
 
-      @media(max-width:700px) {
+      .incomingCard {
+        background: white;
+        color: #172033;
+        padding: 25px;
+        border-radius: 24px;
+        width: min(390px, 100%);
+        text-align: center;
+        box-shadow: 0 25px 80px rgba(0,0,0,.3);
+      }
 
-        .chat-layout {
-          grid-template-columns: 1fr;
+      .incomingAvatar {
+        margin: 0 auto 12px;
+      }
+
+      .incomingActions {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-top: 18px;
+      }
+
+      /* CALL HISTORY */
+
+      .callRow {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 17px;
+        border-bottom: 1px solid #edf0f5;
+      }
+
+      .callIcon {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: #f1f5f9;
+        display: grid;
+        place-items: center;
+      }
+
+      /* RESPONSIVE */
+
+      @media (max-width: 700px) {
+        .topbar {
+          padding: 0 10px;
         }
 
-        .sidebar {
-          display: none;
+        .mainWrap {
+          padding: 8px;
         }
 
-        .back {
-          display: block;
+        .nav {
+          top: 70px;
+          border-radius: 14px;
         }
 
-        .messages {
-          padding: 10px 3%;
+        .page {
+          border-radius: 15px;
+        }
+
+        .chatPage {
+          height: calc(100vh - 142px);
+          min-height: 500px;
         }
 
         .bubble {
-          max-width: 86%;
+          max-width: 84%;
         }
 
-        .stories {
-          grid-template-columns: 1fr 1fr;
+        .messageMedia {
+          max-width: 230px;
         }
 
-        .story {
-          padding: 7px;
+        .storyGrid {
+          grid-template-columns: repeat(2, 1fr);
+          padding: 10px;
         }
 
-        .top {
-          height: 56px;
+        .storyCard,
+        .addStory {
+          height: 260px;
         }
 
-        .tabs {
-          height: 47px;
+        .personActions {
+          flex-direction: column;
         }
 
-        .icon,
-        .file-label {
-          width: 36px;
-          height: 36px;
-          font-size: 18px;
+        .profileBox {
+          align-items: flex-start;
         }
 
-        .textbox {
-          height: 40px;
-        }
-
-        .send {
-          width: 40px;
-          height: 40px;
+        .localVideo {
+          width: 105px;
+          height: 150px;
         }
       }
-
     `}</style>
   );
 }
 
-
 /* =========================================================
-   SMALL COMPONENTS
+   AVATAR
 ========================================================= */
 
-function Avatar({ user }) {
-  const name =
-    user?.name ||
-    user?.displayName ||
-    user?.email ||
-    "?";
+function Avatar({ user, small = false }) {
+  const name = safeName(user);
+  const letter = name.charAt(0).toUpperCase();
 
   return (
-    <div className="avatar">
-      {name.charAt(0).toUpperCase()}
+    <div className={`avatar ${small ? "small" : ""}`}>
+      {user?.photoURL ? (
+        <img src={user.photoURL} alt="" />
+      ) : (
+        letter
+      )}
     </div>
   );
 }
-
-
-function EyeIcon() {
-  return <span className="eye" aria-label="seen" />;
-}
-
-
-/* =========================================================
-   APP
-========================================================= */
-
-function App() {
-
-  const [user,setUser] = useState(undefined);
-
-  useEffect(() => {
-    return onAuthStateChanged(auth,setUser);
-  },[]);
-
-  if(user === undefined) {
-    return (
-      <>
-        <Styles/>
-
-        <div className="empty">
-          <div className="empty-icon">
-            💬
-          </div>
-
-          <h2>Chatdo</h2>
-          <p>Loading...</p>
-        </div>
-      </>
-    );
-  }
-
-  if(!user) {
-    return (
-      <>
-        <Styles/>
-        <Auth/>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <Styles/>
-      <SocialApp user={user}/>
-    </>
-  );
-}
-
-
-/* =========================================================
-   FIREBASE ERROR
-========================================================= */
-
-function firebaseError(error) {
-
-  const map = {
-
-    "auth/invalid-credential":
-      "Email or password is incorrect.",
-
-    "auth/invalid-email":
-      "Please enter a valid email.",
-
-    "auth/email-already-in-use":
-      "This email is already registered.",
-
-    "auth/weak-password":
-      "Password should be at least 6 characters.",
-
-    "auth/network-request-failed":
-      "Network error. Please try again."
-
-  };
-
-  return (
-    map[error?.code] ||
-    error?.message ||
-    "Something went wrong."
-  );
-}
-
 
 /* =========================================================
    AUTH
 ========================================================= */
 
 function Auth() {
-
-  const [mode,setMode] = useState("login");
-  const [name,setName] = useState("");
-  const [email,setEmail] = useState("");
-  const [password,setPassword] = useState("");
-  const [error,setError] = useState("");
-  const [loading,setLoading] = useState(false);
+  const [mode, setMode] = useState("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   async function submit(e) {
-
     e.preventDefault();
-
     setError("");
     setLoading(true);
 
     try {
-
-      if(mode === "login") {
-
-        await signInWithEmailAndPassword(
+      if (mode === "signup") {
+        const cred = await createUserWithEmailAndPassword(
           auth,
           email.trim(),
           password
         );
 
-      } else {
-
-        const result =
-          await createUserWithEmailAndPassword(
-            auth,
-            email.trim(),
-            password
-          );
-
-        await updateProfile(
-          result.user,
-          {
-            displayName:name.trim()
-          }
-        );
+        if (name.trim()) {
+          await updateProfile(cred.user, {
+            displayName: name.trim()
+          });
+        }
 
         await setDoc(
-          doc(db,"users",result.user.uid),
+          doc(db, "users", cred.user.uid),
           {
-            uid:result.user.uid,
-            email:result.user.email,
-            name:name.trim(),
-            photoURL:"",
-            online:true,
-            lastSeen:serverTimestamp(),
-            createdAt:serverTimestamp(),
-            friends:[],
-            friendRequests:[]
+            uid: cred.user.uid,
+            email: email.trim(),
+            name: name.trim(),
+            username: "",
+            phoneNumber: "",
+            bio: "",
+            hobbies: "",
+            photoURL: "",
+            friends: [],
+            friendRequests: [],
+            sentRequests: [],
+            searchHistory: [],
+            createdAt: serverTimestamp()
           },
-          {merge:true}
+          { merge: true }
+        );
+      } else {
+        await signInWithEmailAndPassword(
+          auth,
+          email.trim(),
+          password
         );
       }
+    } catch (err) {
+      console.error(err);
 
-    } catch(err) {
+      const code = err?.code || "";
 
-      setError(firebaseError(err));
+      if (code.includes("invalid-credential")) {
+        setError("Email or password is incorrect.");
+      } else if (code.includes("email-already-in-use")) {
+        setError("This email is already registered.");
+      } else if (code.includes("weak-password")) {
+        setError("Password should be at least 6 characters.");
+      } else if (code.includes("invalid-email")) {
+        setError("Please enter a valid email.");
+      } else {
+        setError(err?.message || "Something went wrong.");
+      }
+    }
 
-    } finally {
+    setLoading(false);
+  }
 
-      setLoading(false);
+  async function forgotPassword() {
+    setError("");
+    setResetSent(false);
 
+    if (!email.trim()) {
+      setError("Enter your email first.");
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      setResetSent(true);
+    } catch (err) {
+      setError(err?.message || "Could not send reset email.");
     }
   }
 
   return (
-    <div className="auth">
+    <div className="authPage">
+      <div className="authCard">
+        <div className="authLogo">
+          <div className="brandMark">C</div>
+          <h1>Chatdo</h1>
+          <div className="subtle">
+            Simple. Social. Connected.
+          </div>
+        </div>
 
-      <div className="auth-card">
-
-        <h1>Chatdo</h1>
-
-        <p>
-          Chat, connect and share stories.
-        </p>
-
-        <form onSubmit={submit}>
-
+        <form className="authForm" onSubmit={submit}>
           {mode === "signup" && (
             <input
               className="input"
               placeholder="Your name"
               value={name}
-              onChange={e=>setName(e.target.value)}
+              onChange={(e) => setName(e.target.value)}
               required
             />
           )}
@@ -1076,9 +1280,9 @@ function Auth() {
           <input
             className="input"
             type="email"
-            placeholder="Email address"
+            placeholder="Email"
             value={email}
-            onChange={e=>setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value)}
             required
           />
 
@@ -1086,2304 +1290,2277 @@ function Auth() {
             className="input"
             type="password"
             placeholder="Password"
-            minLength={6}
             value={password}
-            onChange={e=>setPassword(e.target.value)}
+            onChange={(e) => setPassword(e.target.value)}
             required
           />
 
-          <button
-            className="primary"
-            style={{
-              width:"100%",
-              marginTop:7
-            }}
-            disabled={loading}
-          >
-            {
-              loading
-                ? "Please wait..."
-                : mode === "login"
-                  ? "Sign in"
-                  : "Create account"
-            }
+          {error && (
+            <div className="authError">
+              {error}
+            </div>
+          )}
+
+          {resetSent && (
+            <div
+              style={{
+                background: "#ecfdf5",
+                color: "#047857",
+                padding: 10,
+                borderRadius: 10,
+                fontSize: 13
+              }}
+            >
+              Password reset email sent.
+            </div>
+          )}
+
+          <button className="primary" disabled={loading}>
+            {loading
+              ? "Please wait..."
+              : mode === "login"
+              ? "Login"
+              : "Create account"}
           </button>
 
-        </form>
+          {mode === "login" && (
+            <button
+              type="button"
+              className="linkBtn"
+              onClick={forgotPassword}
+            >
+              Forgot password?
+            </button>
+          )}
 
-        {error && (
-          <div className="error">
-            {error}
+          <div
+            style={{
+              textAlign: "center",
+              fontSize: 13,
+              color: "#64748b"
+            }}
+          >
+            {mode === "login"
+              ? "Don't have an account?"
+              : "Already have an account?"}{" "}
+            <button
+              type="button"
+              className="linkBtn"
+              onClick={() => {
+                setMode(mode === "login" ? "signup" : "login");
+                setError("");
+              }}
+            >
+              {mode === "login" ? "Sign up" : "Login"}
+            </button>
           </div>
-        )}
-
-        <button
-          className="link"
-          onClick={()=>{
-            setError("");
-
-            setMode(
-              mode === "login"
-                ? "signup"
-                : "login"
-            );
-          }}
-        >
-          {
-            mode === "login"
-              ? "Create a new account"
-              : "Already have an account? Sign in"
-          }
-        </button>
-
+        </form>
       </div>
-
     </div>
   );
 }
-
 
 /* =========================================================
    PRESENCE
 ========================================================= */
 
 function usePresence(user) {
+  useEffect(() => {
+    if (!user) return;
 
-  useEffect(()=>{
+    const userRef = doc(db, "users", user.uid);
 
-    const userDoc =
-      doc(db,"users",user.uid);
+    updateDoc(userRef, {
+      online: true,
+      lastSeen: serverTimestamp()
+    }).catch(() => {});
 
-    async function setPresence(online) {
+    const timer = setInterval(() => {
+      updateDoc(userRef, {
+        online: true,
+        lastSeen: serverTimestamp()
+      }).catch(() => {});
+    }, 60000);
 
-      await setDoc(
-        userDoc,
-        {
-          uid:user.uid,
-          email:user.email,
-          name:
-            user.displayName ||
-            user.email,
-          online,
-          lastSeen:serverTimestamp()
-        },
-        {merge:true}
-      ).catch(()=>{});
-    }
-
-    function visibility() {
-
-      setPresence(
-        document.visibilityState === "visible"
-      );
-    }
-
-    function pageHide() {
-      setPresence(false);
-    }
-
-    function pageShow() {
-      setPresence(true);
-    }
-
-    setPresence(true);
-
-    document.addEventListener(
-      "visibilitychange",
-      visibility
-    );
-
-    window.addEventListener(
-      "pagehide",
-      pageHide
-    );
-
-    window.addEventListener(
-      "pageshow",
-      pageShow
-    );
-
-    return ()=>{
-
-      document.removeEventListener(
-        "visibilitychange",
-        visibility
-      );
-
-      window.removeEventListener(
-        "pagehide",
-        pageHide
-      );
-
-      window.removeEventListener(
-        "pageshow",
-        pageShow
-      );
-
-      setPresence(false);
+    const offline = () => {
+      updateDoc(userRef, {
+        online: false,
+        lastSeen: serverTimestamp()
+      }).catch(() => {});
     };
 
-  },[user.uid]);
+    window.addEventListener("beforeunload", offline);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("beforeunload", offline);
+      offline();
+    };
+  }, [user]);
 }
 
-
 /* =========================================================
-   SOCIAL APP
+   WEBRTC CALL MANAGER
 ========================================================= */
 
-function SocialApp({user}) {
+function useCallManager(user) {
+  const [incomingCall, setIncomingCall] = useState(null);
+  const [activeCall, setActiveCall] = useState(null);
+  const [localStream, setLocalStream] = useState(null);
+  const [remoteStream, setRemoteStream] = useState(null);
+  const [muted, setMuted] = useState(false);
+  const [cameraOff, setCameraOff] = useState(false);
 
-  usePresence(user);
+  const pcRef = useRef(null);
+  const activeIdRef = useRef(null);
+  const callDocUnsubRef = useRef(null);
+  const candidateUnsubRef = useRef(null);
 
-  const [tab,setTab] = useState("chats");
-  const [selected,setSelected] = useState(null);
-  const [people,setPeople] = useState([]);
-  const [me,setMe] = useState(null);
+  useEffect(() => {
+    if (!user) return;
 
-  useEffect(()=>{
+    const q = query(
+      collection(db, "calls"),
+      where("members", "array-contains", user.uid),
+      limit(100)
+    );
 
-    const unsubscribe =
-      onSnapshot(
-        doc(db,"users",user.uid),
-        snapshot=>{
-          setMe({
-            uid:user.uid,
-            ...snapshot.data()
+    const unsub = onSnapshot(q, (snap) => {
+      const calls = snap.docs
+        .map((d) => ({
+          id: d.id,
+          ...d.data()
+        }))
+        .sort((a, b) => {
+          const at = a.createdAt?.toMillis?.() || 0;
+          const bt = b.createdAt?.toMillis?.() || 0;
+          return bt - at;
+        });
+
+      const incoming = calls.find(
+        (c) =>
+          c.calleeId === user.uid &&
+          c.status === "ringing" &&
+          c.id !== activeIdRef.current
+      );
+
+      setIncomingCall(incoming || null);
+    });
+
+    return () => unsub();
+  }, [user]);
+
+  function cleanup() {
+    try {
+      callDocUnsubRef.current?.();
+    } catch {}
+
+    try {
+      candidateUnsubRef.current?.();
+    } catch {}
+
+    callDocUnsubRef.current = null;
+    candidateUnsubRef.current = null;
+
+    if (pcRef.current) {
+      try {
+        pcRef.current.close();
+      } catch {}
+    }
+
+    pcRef.current = null;
+
+    if (localStream) {
+      localStream.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch {}
+      });
+    }
+
+    setLocalStream(null);
+    setRemoteStream(null);
+    setActiveCall(null);
+    setIncomingCall(null);
+    setMuted(false);
+    setCameraOff(false);
+    activeIdRef.current = null;
+  }
+
+  function makePC(type, role, callId) {
+    const pc = new RTCPeerConnection({
+      iceServers: [
+        {
+          urls: "stun:stun.l.google.com:19302"
+        },
+        {
+          urls: "stun:stun1.l.google.com:19302"
+        }
+      ]
+    });
+
+    pc.ontrack = (event) => {
+      if (event.streams?.[0]) {
+        setRemoteStream(event.streams[0]);
+      }
+    };
+
+    pc.onicecandidate = async (event) => {
+      if (!event.candidate) return;
+
+      const sub =
+        role === "caller"
+          ? "callerCandidates"
+          : "calleeCandidates";
+
+      await addDoc(
+        collection(db, "calls", callId, sub),
+        {
+          candidate: event.candidate.candidate,
+          sdpMid: event.candidate.sdpMid,
+          sdpMLineIndex: event.candidate.sdpMLineIndex,
+          createdAt: serverTimestamp()
+        }
+      );
+    };
+
+    pcRef.current = pc;
+
+    return pc;
+  }
+
+  async function getMedia(type) {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: type === "video"
+    });
+
+    setLocalStream(stream);
+
+    return stream;
+  }
+
+  async function startCall(other, type) {
+    if (!user || !other) return;
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      alert("Your browser does not support calling.");
+      return;
+    }
+
+    if (activeCall) return;
+
+    try {
+      const stream = await getMedia(type);
+
+      const callRef = await addDoc(collection(db, "calls"), {
+        callerId: user.uid,
+        callerName: safeName(user),
+        callerPhoto: user.photoURL || "",
+        calleeId: other.uid,
+        calleeName: safeName(other),
+        calleePhoto: other.photoURL || "",
+        members: [user.uid, other.uid],
+        type,
+        status: "ringing",
+        offer: null,
+        answer: null,
+        createdAt: serverTimestamp()
+      });
+
+      const callId = callRef.id;
+
+      const pc = makePC(type, "caller", callId);
+
+      stream.getTracks().forEach((track) => {
+        pc.addTrack(track, stream);
+      });
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      await updateDoc(callRef, {
+        offer: {
+          type: offer.type,
+          sdp: offer.sdp
+        }
+      });
+
+      activeIdRef.current = callId;
+
+      setActiveCall({
+        id: callId,
+        type,
+        other,
+        role: "caller"
+      });
+
+      callDocUnsubRef.current = onSnapshot(
+        callRef,
+        async (snap) => {
+          const data = snap.data();
+
+          if (!data) return;
+
+          if (
+            data.answer &&
+            !pc.currentRemoteDescription
+          ) {
+            try {
+              await pc.setRemoteDescription(
+                new RTCSessionDescription(data.answer)
+              );
+            } catch (e) {
+              console.error(e);
+            }
+          }
+
+          if (
+            ["ended", "rejected"].includes(data.status)
+          ) {
+            cleanup();
+          }
+        }
+      );
+
+      candidateUnsubRef.current = onSnapshot(
+        collection(db, "calls", callId, "calleeCandidates"),
+        (snap) => {
+          snap.docChanges().forEach(async (change) => {
+            if (change.type !== "added") return;
+
+            const data = change.doc.data();
+
+            try {
+              await pc.addIceCandidate(
+                new RTCIceCandidate({
+                  candidate: data.candidate,
+                  sdpMid: data.sdpMid,
+                  sdpMLineIndex: data.sdpMLineIndex
+                })
+              );
+            } catch (e) {
+              console.error(e);
+            }
           });
         }
       );
+    } catch (err) {
+      console.error(err);
+      alert(
+        "Microphone/Camera permission is required for calling."
+      );
+      cleanup();
+    }
+  }
 
-    return unsubscribe;
+  async function acceptCall(call) {
+    if (!call || !user) return;
 
-  },[user.uid]);
+    try {
+      const stream = await getMedia(call.type);
 
-  useEffect(()=>{
+      const callRef = doc(db, "calls", call.id);
 
-    const q =
-      query(
-        usersRef,
-        orderBy("name"),
-        limit(100)
+      const current = await getDoc(callRef);
+      const data = current.data();
+
+      if (!data?.offer) {
+        alert("Call offer is not available.");
+        cleanup();
+        return;
+      }
+
+      const pc = makePC(
+        call.type,
+        "callee",
+        call.id
       );
 
-    return onSnapshot(
-      q,
-      snapshot=>{
+      stream.getTracks().forEach((track) => {
+        pc.addTrack(track, stream);
+      });
 
-        const list =
-          snapshot.docs
-            .map(d=>({
-              id:d.id,
-              ...d.data()
-            }))
-            .filter(p=>p.uid !== user.uid);
+      await pc.setRemoteDescription(
+        new RTCSessionDescription(data.offer)
+      );
 
-        setPeople(list);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      await updateDoc(callRef, {
+        answer: {
+          type: answer.type,
+          sdp: answer.sdp
+        },
+        status: "active"
+      });
+
+      activeIdRef.current = call.id;
+
+      setIncomingCall(null);
+
+      const other = {
+        uid: call.callerId,
+        name: call.callerName,
+        displayName: call.callerName,
+        photoURL: call.callerPhoto || ""
+      };
+
+      setActiveCall({
+        id: call.id,
+        type: call.type,
+        other,
+        role: "callee"
+      });
+
+      callDocUnsubRef.current = onSnapshot(
+        callRef,
+        (snap) => {
+          const d = snap.data();
+
+          if (
+            d &&
+            ["ended", "rejected"].includes(d.status)
+          ) {
+            cleanup();
+          }
+        }
+      );
+
+      candidateUnsubRef.current = onSnapshot(
+        collection(db, "calls", call.id, "callerCandidates"),
+        (snap) => {
+          snap.docChanges().forEach(async (change) => {
+            if (change.type !== "added") return;
+
+            const candidate = change.doc.data();
+
+            try {
+              await pc.addIceCandidate(
+                new RTCIceCandidate({
+                  candidate: candidate.candidate,
+                  sdpMid: candidate.sdpMid,
+                  sdpMLineIndex: candidate.sdpMLineIndex
+                })
+              );
+            } catch (e) {
+              console.error(e);
+            }
+          });
+        }
+      );
+    } catch (err) {
+      console.error(err);
+
+      try {
+        await updateDoc(doc(db, "calls", call.id), {
+          status: "ended"
+        });
+      } catch {}
+
+      alert(
+        "Microphone/Camera permission is required."
+      );
+
+      cleanup();
+    }
+  }
+
+  async function rejectCall(call) {
+    if (!call) return;
+
+    try {
+      await updateDoc(
+        doc(db, "calls", call.id),
+        {
+          status: "rejected",
+          endedAt: serverTimestamp()
+        }
+      );
+    } catch (e) {
+      console.error(e);
+    }
+
+    setIncomingCall(null);
+  }
+
+  async function hangup() {
+    if (activeCall?.id) {
+      try {
+        await updateDoc(
+          doc(db, "calls", activeCall.id),
+          {
+            status: "ended",
+            endedAt: serverTimestamp()
+          }
+        );
+      } catch (e) {
+        console.error(e);
       }
-    );
+    }
 
-  },[user.uid]);
+    cleanup();
+  }
 
-  const friends =
-    people.filter(
-      p=>me?.friends?.includes(p.uid)
+  function toggleMute() {
+    if (!localStream) return;
+
+    localStream.getAudioTracks().forEach((track) => {
+      track.enabled = !track.enabled;
+    });
+
+    setMuted((v) => !v);
+  }
+
+  function toggleCamera() {
+    if (!localStream) return;
+
+    localStream.getVideoTracks().forEach((track) => {
+      track.enabled = !track.enabled;
+    });
+
+    setCameraOff((v) => !v);
+  }
+
+  return {
+    incomingCall,
+    activeCall,
+    localStream,
+    remoteStream,
+    muted,
+    cameraOff,
+    startCall,
+    acceptCall,
+    rejectCall,
+    hangup,
+    toggleMute,
+    toggleCamera
+  };
+}
+
+/* =========================================================
+   CALL UI
+========================================================= */
+
+function CallUI({
+  manager
+}) {
+  const {
+    incomingCall,
+    activeCall,
+    localStream,
+    remoteStream,
+    muted,
+    cameraOff,
+    acceptCall,
+    rejectCall,
+    hangup,
+    toggleMute,
+    toggleCamera
+  } = manager;
+
+  const localRef = useRef(null);
+  const remoteRef = useRef(null);
+
+  useEffect(() => {
+    if (localRef.current) {
+      localRef.current.srcObject = localStream || null;
+    }
+  }, [localStream]);
+
+  useEffect(() => {
+    if (remoteRef.current) {
+      remoteRef.current.srcObject = remoteStream || null;
+    }
+  }, [remoteStream]);
+
+  if (incomingCall && !activeCall) {
+    return (
+      <div className="callOverlay">
+        <div className="incomingCard">
+          <div className="incomingAvatar">
+            <Avatar
+              user={{
+                displayName: incomingCall.callerName,
+                photoURL: incomingCall.callerPhoto
+              }}
+              small={false}
+            />
+          </div>
+
+          <div className="callName">
+            {incomingCall.callerName}
+          </div>
+
+          <div className="callType">
+            Incoming{" "}
+            {incomingCall.type === "video"
+              ? "video"
+              : "audio"}{" "}
+            call
+          </div>
+
+          <div className="incomingActions">
+            <button
+              className="primary"
+              onClick={() => acceptCall(incomingCall)}
+            >
+              ✓ Accept
+            </button>
+
+            <button
+              className="danger"
+              onClick={() => rejectCall(incomingCall)}
+            >
+              ✕ Reject
+            </button>
+          </div>
+        </div>
+      </div>
     );
+  }
+
+  if (!activeCall) return null;
 
   return (
-    <div className="app">
-
-      <div className="top">
-
-        <div className="brand">
-          Chatdo
-          <small>
-            Chat • Connect • Share
-          </small>
+    <div className="callOverlay">
+      <div className="callPanel">
+        <div className="callName">
+          {safeName(activeCall.other)}
         </div>
 
-        <button
-          className="logout"
-          onClick={()=>signOut(auth)}
-        >
-          Logout
-        </button>
+        <div className="callType">
+          {activeCall.type === "video"
+            ? "Video call"
+            : "Audio call"}
+        </div>
 
-      </div>
+        {activeCall.type === "video" ? (
+          <div className="videoArea">
+            <video
+              ref={remoteRef}
+              className="remoteVideo"
+              autoPlay
+              playsInline
+            />
 
-      <div className="tabs">
-
-        <button
-          className={
-            "tab "+
-            (tab === "chats" ? "active" : "")
-          }
-          onClick={()=>{
-            setTab("chats");
-            setSelected(null);
-          }}
-        >
-          Chats
-        </button>
-
-        <button
-          className={
-            "tab "+
-            (tab === "stories" ? "active" : "")
-          }
-          onClick={()=>{
-            setTab("stories");
-            setSelected(null);
-          }}
-        >
-          Stories
-        </button>
-
-        <button
-          className={
-            "tab "+
-            (tab === "people" ? "active" : "")
-          }
-          onClick={()=>{
-            setTab("people");
-            setSelected(null);
-          }}
-        >
-          People
-        </button>
-
-      </div>
-
-      <div className="main">
-
-        {tab === "chats" && (
-
-          <div className="chat-layout">
-
-            <div className="sidebar">
-
-              <div className="side-title">
-                Chats
-              </div>
-
-              {friends.length === 0 ? (
-
-                <div
-                  style={{
-                    padding:20,
-                    color:"#667781"
-                  }}
-                >
-                  No friends yet.
-                  <br/>
-                  Go to People and search for users.
-                </div>
-
-              ) : (
-
-                friends.map(friend=>(
-
-                  <button
-                    className={
-                      "person "+
-                      (
-                        selected?.uid === friend.uid
-                          ? "sel"
-                          : ""
-                      )
-                    }
-                    key={friend.uid}
-                    onClick={()=>
-                      setSelected(friend)
-                    }
-                  >
-
-                    <Avatar user={friend}/>
-
-                    <div className="info">
-
-                      <div className="name">
-                        {friend.name || friend.email}
-                      </div>
-
-                      <div
-                        className={
-                          friend.online
-                            ? "online"
-                            : "offline"
-                        }
-                      >
-                        {
-                          friend.online
-                            ? "Online"
-                            : "Offline"
-                        }
-                      </div>
-
-                    </div>
-
-                  </button>
-
-                ))
-              )}
-
-            </div>
-
-            {selected ? (
-
-              <Chat
-                user={user}
-                other={selected}
-                onBack={()=>setSelected(null)}
-              />
-
-            ) : (
-
-              <div className="empty">
-
-                <div className="empty-icon">
-                  💬
-                </div>
-
-                <h2>
-                  Welcome to Chatdo
-                </h2>
-
-                <p>
-                  Select a friend to start chatting.
-                </p>
-
-              </div>
-
-            )}
-
+            <video
+              ref={localRef}
+              className="localVideo"
+              autoPlay
+              muted
+              playsInline
+            />
+          </div>
+        ) : (
+          <div
+            style={{
+              minHeight: 320,
+              display: "grid",
+              placeItems: "center"
+            }}
+          >
+            <Avatar
+              user={activeCall.other}
+            />
           </div>
         )}
 
-        {tab === "stories" && (
-          <Stories user={user}/>
-        )}
+        <div className="callControls">
+          <button
+            className="callControl"
+            onClick={toggleMute}
+            title="Mute"
+          >
+            {muted ? "🔇" : "🎤"}
+          </button>
 
-        {tab === "people" && (
-          <People
-            user={user}
-            people={people}
-            me={me}
-          />
-        )}
-
-      </div>
-
-    </div>
-  );
-}
-
-
-/* =========================================================
-   PEOPLE
-========================================================= */
-
-function People({user,people,me}) {
-
-  const [search,setSearch] = useState("");
-
-  const incoming =
-    me?.friendRequests || [];
-
-  const results =
-    search.trim()
-      ? people.filter(p=>{
-
-          const text =
-            (
-              p.name ||
-              p.email ||
-              ""
-            ).toLowerCase();
-
-          return text.includes(
-            search.trim().toLowerCase()
-          );
-
-        })
-      : [];
-
-  async function poke(person) {
-
-    try {
-
-      await updateDoc(
-        doc(db,"users",person.uid),
-        {
-          friendRequests:arrayUnion({
-            uid:user.uid,
-            name:
-              user.displayName ||
-              user.email,
-            email:user.email
-          })
-        }
-      );
-
-      alert("Poke sent.");
-
-    } catch(err) {
-
-      console.error(err);
-
-      alert(
-        "Could not send poke."
-      );
-    }
-  }
-
-  async function accept(request) {
-
-    try {
-
-      await updateDoc(
-        doc(db,"users",user.uid),
-        {
-          friends:arrayUnion(request.uid),
-          friendRequests:arrayRemove(request)
-        }
-      );
-
-      await setDoc(
-        doc(db,"users",request.uid),
-        {
-          friends:arrayUnion(user.uid)
-        },
-        {merge:true}
-      );
-
-    } catch(err) {
-
-      console.error(err);
-
-      alert(
-        "Could not accept request."
-      );
-    }
-  }
-
-  async function reject(request) {
-
-    try {
-
-      await updateDoc(
-        doc(db,"users",user.uid),
-        {
-          friendRequests:
-            arrayRemove(request)
-        }
-      );
-
-    } catch(err) {
-
-      console.error(err);
-    }
-  }
-
-  function relationship(person) {
-
-    if(me?.friends?.includes(person.uid)) {
-      return "friends";
-    }
-
-    const alreadySent =
-      person.friendRequests?.some(
-        r=>r.uid === user.uid
-      );
-
-    if(alreadySent) {
-      return "sent";
-    }
-
-    return "none";
-  }
-
-  return (
-    <div className="page">
-
-      <div className="card">
-
-        <h2 style={{marginTop:0}}>
-          People
-        </h2>
-
-        <p className="muted">
-          Search for people by name or email.
-        </p>
-
-        <div className="search">
-
-          <span>
-            🔍
-          </span>
-
-          <input
-            className="input"
-            placeholder="Search people..."
-            value={search}
-            onChange={e=>
-              setSearch(e.target.value)
-            }
-          />
-
-        </div>
-
-      </div>
-
-
-      {incoming.length > 0 && (
-
-        <div className="card">
-
-          <h3>
-            Friend requests
-          </h3>
-
-          {incoming.map(request=>(
-
-            <div
-              className="people-result"
-              key={request.uid}
+          {activeCall.type === "video" && (
+            <button
+              className="callControl"
+              onClick={toggleCamera}
+              title="Camera"
             >
-
-              <Avatar user={request}/>
-
-              <div className="info">
-
-                <div className="name">
-                  {request.name || request.email}
-                </div>
-
-                <div className="muted">
-                  Wants to be your friend
-                </div>
-
-              </div>
-
-              <div className="people-actions">
-
-                <button
-                  className="request"
-                  onClick={()=>
-                    accept(request)
-                  }
-                >
-                  Accept
-                </button>
-
-                <button
-                  className="secondary"
-                  onClick={()=>
-                    reject(request)
-                  }
-                >
-                  Reject
-                </button>
-
-              </div>
-
-            </div>
-
-          ))}
-
-        </div>
-      )}
-
-
-      {search.trim() && (
-
-        <div className="card">
-
-          <h3>
-            Search results
-          </h3>
-
-          {results.length === 0 ? (
-
-            <p className="muted">
-              No people found.
-            </p>
-
-          ) : (
-
-            results.map(person=>{
-
-              const state =
-                relationship(person);
-
-              return (
-
-                <div
-                  className="people-result"
-                  key={person.uid}
-                >
-
-                  <Avatar user={person}/>
-
-                  <div className="info">
-
-                    <div className="name">
-                      {person.name || person.email}
-                    </div>
-
-                    <div
-                      className={
-                        person.online
-                          ? "online"
-                          : "offline"
-                      }
-                    >
-                      {
-                        person.online
-                          ? "Online"
-                          : "Offline"
-                      }
-                    </div>
-
-                  </div>
-
-                  <div className="people-actions">
-
-                    {state === "friends" && (
-
-                      <span
-                        className="muted"
-                        style={{
-                          padding:"8px"
-                        }}
-                      >
-                        ✓ Friend
-                      </span>
-                    )}
-
-                    {state === "sent" && (
-
-                      <span
-                        className="muted"
-                        style={{
-                          padding:"8px"
-                        }}
-                      >
-                        Poked
-                      </span>
-                    )}
-
-                    {state === "none" && (
-
-                      <button
-                        className="request"
-                        onClick={()=>
-                          poke(person)
-                        }
-                      >
-                        Poke
-                      </button>
-                    )}
-
-                  </div>
-
-                </div>
-
-              );
-
-            })
+              {cameraOff ? "🚫" : "📹"}
+            </button>
           )}
 
+          <button
+            className="callControl callEnd"
+            onClick={hangup}
+            title="End call"
+          >
+            ☎
+          </button>
         </div>
-      )}
-
+      </div>
     </div>
   );
 }
-
 
 /* =========================================================
    CHAT MESSAGES HOOK
 ========================================================= */
 
-function useChatMessages(chatId) {
+function useChatMessages(chatId, user) {
+  const [messages, setMessages] = useState([]);
 
-  const [messages,setMessages] =
-    useState([]);
-
-  useEffect(()=>{
-
-    if(!chatId) {
+  useEffect(() => {
+    if (!chatId || !user) {
       setMessages([]);
       return;
     }
 
-    const messagesRef =
-      collection(
-        db,
-        "chats",
-        chatId,
-        "messages"
-      );
-
-    const q =
-      query(
-        messagesRef,
-        orderBy("createdAt","asc")
-      );
-
-    return onSnapshot(
-      q,
-      snapshot=>{
-
-        setMessages(
-          snapshot.docs.map(d=>({
-            id:d.id,
-            ...d.data()
-          }))
-        );
-
-      }
+    const q = query(
+      collection(db, "chats", chatId, "messages"),
+      orderBy("createdAt", "asc"),
+      limit(300)
     );
 
-  },[chatId]);
+    const unsub = onSnapshot(q, async (snap) => {
+      const list = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data()
+      }));
+
+      setMessages(list);
+
+      /* mark incoming messages delivered */
+      const updates = [];
+
+      list.forEach((m) => {
+        if (
+          m.senderId !== user.uid &&
+          !(m.deliveredTo || []).includes(user.uid)
+        ) {
+          updates.push(
+            updateDoc(
+              doc(
+                db,
+                "chats",
+                chatId,
+                "messages",
+                m.id
+              ),
+              {
+                deliveredTo: arrayUnion(user.uid)
+              }
+            ).catch(() => {})
+          );
+        }
+      });
+
+      await Promise.all(updates);
+    });
+
+    return () => unsub();
+  }, [chatId, user]);
 
   return messages;
 }
-
 
 /* =========================================================
    CHAT
 ========================================================= */
 
-function Chat({user,other,onBack}) {
+function Chat({
+  user,
+  other,
+  chat,
+  onBack,
+  onStartCall
+}) {
+  const chatId = chat?.id || chatIdFor(user.uid, other.uid);
 
-  const chatId =
-    [user.uid,other.uid]
-      .sort()
-      .join("_");
+  const messages = useChatMessages(chatId, user);
 
-  const chatDoc =
-    doc(db,"chats",chatId);
+  const [text, setText] = useState("");
+  const [file, setFile] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [typing, setTyping] = useState(false);
+  const [recording, setRecording] = useState(false);
 
-  const messages =
-    useChatMessages(chatId);
+  const messagesRef = useRef(null);
+  const typingTimer = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const recordedChunksRef = useRef([]);
 
-  const [text,setText] = useState("");
-  const [file,setFile] = useState(null);
-  const [sending,setSending] = useState(false);
-  const [menuId,setMenuId] = useState(null);
-  const [editingId,setEditingId] = useState(null);
-  const [editingText,setEditingText] = useState("");
-  const [typing,setTyping] = useState(false);
-  const [recording,setRecording] = useState(null);
+  useEffect(() => {
+    const el = messagesRef.current;
+    if (!el) return;
 
-  const typingTimer =
-    useRef(null);
+    el.scrollTop = el.scrollHeight;
+  }, [messages.length]);
 
-  const messagesBox =
-    useRef(null);
+  useEffect(() => {
+    if (!chatId) return;
 
-  const mediaRecorder =
-    useRef(null);
+    const chatRef = doc(db, "chats", chatId);
 
-  const chunks =
-    useRef([]);
+    updateDoc(chatRef, {
+      [`typing.${user.uid}`]: false
+    }).catch(() => {});
 
+    return () => {
+      updateDoc(chatRef, {
+        [`typing.${user.uid}`]: false
+      }).catch(() => {});
+    };
+  }, [chatId, user.uid]);
 
-  /* CHAT DOCUMENT */
+  useEffect(() => {
+    if (!chatId) return;
 
-  useEffect(()=>{
+    const unsub = onSnapshot(
+      doc(db, "chats", chatId),
+      (snap) => {
+        const data = snap.data();
 
-    return onSnapshot(
-      chatDoc,
-      snapshot=>{
+        const otherTyping =
+          data?.typing?.[other.uid] || false;
 
-        const data =
-          snapshot.data();
-
-        setTyping(
-          data?.typingUid === other.uid
-        );
-
+        setTyping(otherTyping);
       }
     );
 
-  },[chatId,other.uid]);
+    return () => unsub();
+  }, [chatId, other.uid]);
 
+  async function markSeen() {
+    const unseen = messages.filter(
+      (m) =>
+        m.senderId !== user.uid &&
+        !(m.seenBy || []).includes(user.uid)
+    );
 
-  /* AUTO SCROLL */
-
-  useEffect(()=>{
-
-    if(messagesBox.current) {
-
-      messagesBox.current.scrollTop =
-        messagesBox.current.scrollHeight;
-
-    }
-
-  },[messages.length]);
-
-
-  /* MARK RECEIVED MESSAGES AS SEEN */
-
-  useEffect(()=>{
-
-    async function markSeen() {
-
-      const updates =
-        messages.filter(
-          m=>
-            m.senderId === other.uid &&
-            !m.seenBy?.includes(user.uid)
-        );
-
-      for(const message of updates) {
-
-        await updateDoc(
+    await Promise.all(
+      unseen.map((m) =>
+        updateDoc(
           doc(
             db,
             "chats",
             chatId,
             "messages",
-            message.id
+            m.id
           ),
           {
-            seenBy:
-              arrayUnion(user.uid)
+            seenBy: arrayUnion(user.uid),
+            deliveredTo: arrayUnion(user.uid)
           }
-        ).catch(()=>{});
-      }
-    }
+        ).catch(() => {})
+      )
+    );
+  }
 
-    if(messages.length) {
-      markSeen();
-    }
+  useEffect(() => {
+    markSeen();
+  }, [messages.length]);
 
-  },[
-    messages,
-    chatId,
-    user.uid,
-    other.uid
-  ]);
+  async function uploadFile(selectedFile) {
+    if (!selectedFile) return null;
 
+    const safeName =
+      selectedFile.name.replace(/[^\w.-]/g, "_");
 
-  /* CLEAN TYPING */
+    const path =
+      `chatMedia/${chatId}/${Date.now()}_${safeName}`;
 
-  useEffect(()=>{
+    const storageRef = ref(storage, path);
 
-    return ()=>{
+    await uploadBytes(storageRef, selectedFile);
 
-      if(typingTimer.current) {
-        clearTimeout(
-          typingTimer.current
-        );
-      }
+    return await getDownloadURL(storageRef);
+  }
 
-      setDoc(
-        chatDoc,
-        {
-          typingUid:null
+  async function sendMessage(type, url = "") {
+    const value = text.trim();
+
+    if (!value && !url) return;
+
+    const messageRef = collection(
+      db,
+      "chats",
+      chatId,
+      "messages"
+    );
+
+    await addDoc(messageRef, {
+      senderId: user.uid,
+      senderName: safeName(user),
+      text: type === "text" ? value : "",
+      type,
+      url,
+      createdAt: serverTimestamp(),
+      deliveredTo: [],
+      seenBy: [],
+      edited: false,
+      likes: []
+    });
+
+    await setDoc(
+      doc(db, "chats", chatId),
+      {
+        members: [user.uid, other.uid],
+        lastMessage: {
+          text: type === "text"
+            ? value
+            : formatMessagePreview({ type }),
+          type,
+          senderId: user.uid
         },
-        {merge:true}
-      ).catch(()=>{});
+        updatedAt: serverTimestamp(),
+        pinnedBy: chat?.pinnedBy || [],
+        hiddenBy: chat?.hiddenBy || [],
+        deletedBy: arrayRemove(user.uid),
+        [`typing.${user.uid}`]: false
+      },
+      { merge: true }
+    );
 
-    };
+    setText("");
+    setFile(null);
+  }
 
-  },[chatId]);
+  async function sendTextOrFile() {
+    if (file) {
+      try {
+        const url = await uploadFile(file);
 
+        let type = "image";
 
-  /* TYPING */
+        if (file.type.startsWith("video/")) {
+          type = "video";
+        } else if (file.type.startsWith("audio/")) {
+          type = "audio";
+        }
 
-  function handleTyping(value) {
+        await sendMessage(type, url);
+      } catch (e) {
+        console.error(e);
+        alert("File upload failed.");
+      }
 
+      return;
+    }
+
+    if (editing) {
+      await updateDoc(
+        doc(
+          db,
+          "chats",
+          chatId,
+          "messages",
+          editing.id
+        ),
+        {
+          text: text.trim(),
+          edited: true
+        }
+      );
+
+      setEditing(null);
+      setText("");
+      return;
+    }
+
+    await sendMessage("text");
+  }
+
+  async function toggleTyping(value) {
     setText(value);
 
-    setDoc(
-      chatDoc,
+    await updateDoc(
+      doc(db, "chats", chatId),
       {
-        typingUid:user.uid
-      },
-      {merge:true}
-    ).catch(()=>{});
-
-    if(typingTimer.current) {
-      clearTimeout(
-        typingTimer.current
-      );
-    }
-
-    typingTimer.current =
-      setTimeout(()=>{
-
-        setDoc(
-          chatDoc,
-          {
-            typingUid:null
-          },
-          {merge:true}
-        ).catch(()=>{});
-
-      },1200);
-  }
-
-
-  /* SEND TEXT */
-
-  async function sendText() {
-
-    const value =
-      text.trim();
-
-    if(!value || sending) {
-      return;
-    }
-
-    setSending(true);
-
-    try {
-
-      await setDoc(
-        chatDoc,
-        {
-          members:[
-            user.uid,
-            other.uid
-          ],
-          lastMessage:value,
-          updatedAt:serverTimestamp(),
-          typingUid:null
-        },
-        {merge:true}
-      );
-
-      await addDoc(
-        collection(
-          db,
-          "chats",
-          chatId,
-          "messages"
-        ),
-        {
-          senderId:user.uid,
-          senderName:
-            user.displayName ||
-            user.email,
-          text:value,
-          imageURL:"",
-          mediaURL:"",
-          mediaType:"",
-          mimeType:"",
-          createdAt:
-            serverTimestamp(),
-          likes:[],
-          seenBy:[],
-          edited:false,
-          deletedForEveryone:false,
-          deletedFor:[]
-        }
-      );
-
-      setText("");
-
-    } catch(err) {
-
-      console.error(err);
-
-      alert(
-        "Message failed."
-      );
-
-    } finally {
-
-      setSending(false);
-
-    }
-  }
-
-
-  /* SEND IMAGE */
-
-  async function sendImage(fileToSend) {
-
-    if(!fileToSend || sending) {
-      return;
-    }
-
-    if(
-      fileToSend.size >
-      35 * 1024 * 1024
-    ) {
-
-      alert(
-        "Image must be smaller than 35 MB."
-      );
-
-      return;
-    }
-
-    setSending(true);
-
-    try {
-
-      const storageRef =
-        ref(
-          storage,
-          `chatMedia/${chatId}/${Date.now()}-${user.uid}-${fileToSend.name}`
-        );
-
-      await uploadBytes(
-        storageRef,
-        fileToSend,
-        {
-          contentType:
-            fileToSend.type
-        }
-      );
-
-      const url =
-        await getDownloadURL(
-          storageRef
-        );
-
-      await setDoc(
-        chatDoc,
-        {
-          members:[
-            user.uid,
-            other.uid
-          ],
-          lastMessage:"📷 Photo",
-          updatedAt:serverTimestamp(),
-          typingUid:null
-        },
-        {merge:true}
-      );
-
-      await addDoc(
-        collection(
-          db,
-          "chats",
-          chatId,
-          "messages"
-        ),
-        {
-          senderId:user.uid,
-          senderName:
-            user.displayName ||
-            user.email,
-          text:"",
-          imageURL:url,
-          mediaURL:"",
-          mediaType:"",
-          mimeType:fileToSend.type,
-          createdAt:
-            serverTimestamp(),
-          likes:[],
-          seenBy:[],
-          edited:false,
-          deletedForEveryone:false,
-          deletedFor:[]
-        }
-      );
-
-    } catch(err) {
-
-      console.error(err);
-
-      alert(
-        "Image sending failed. Check Firebase Storage Rules."
-      );
-
-    } finally {
-
-      setSending(false);
-
-    }
-  }
-
-
-  /* FILE SELECT */
-
-  function handleFile(e) {
-
-    const selectedFile =
-      e.target.files?.[0];
-
-    e.target.value = "";
-
-    if(!selectedFile) {
-      return;
-    }
-
-    setFile(selectedFile);
-  }
-
-
-  /* SEND BUTTON */
-
-  async function sendTextOrImage() {
-
-    if(file) {
-
-      const selectedFile =
-        file;
-
-      setFile(null);
-
-      await sendImage(
-        selectedFile
-      );
-
-      return;
-    }
-
-    await sendText();
-  }
-
-
-  /* RECORD AUDIO / VIDEO */
-
-  async function startRecording(kind) {
-
-    if(recording) {
-      return;
-    }
-
-    try {
-
-      const stream =
-        await navigator.mediaDevices
-          .getUserMedia(
-            kind === "audio"
-              ? {audio:true}
-              : {
-                  audio:true,
-                  video:true
-                }
-          );
-
-      let mime = "";
-
-      const options =
-        kind === "audio"
-          ? [
-              "audio/webm;codecs=opus",
-              "audio/webm"
-            ]
-          : [
-              "video/webm;codecs=vp8,opus",
-              "video/webm",
-              "video/mp4"
-            ];
-
-      for(
-        const option of options
-      ) {
-
-        if(
-          window.MediaRecorder &&
-          MediaRecorder.isTypeSupported(
-            option
-          )
-        ) {
-
-          mime = option;
-          break;
-
-        }
+        [`typing.${user.uid}`]: !!value
       }
+    ).catch(() => {});
 
-      const recorder =
-        mime
-          ? new MediaRecorder(
-              stream,
-              {
-                mimeType:mime
-              }
-            )
-          : new MediaRecorder(
-              stream
-            );
+    clearTimeout(typingTimer.current);
 
-      chunks.current = [];
-
-      recorder.ondataavailable =
-        event=>{
-
-          if(
-            event.data &&
-            event.data.size
-          ) {
-
-            chunks.current.push(
-              event.data
-            );
-
-          }
-        };
-
-
-      recorder.onstop =
-        async ()=>{
-
-          const blob =
-            new Blob(
-              chunks.current,
-              {
-                type:
-                  mime ||
-                  recorder.mimeType ||
-                  (
-                    kind === "audio"
-                      ? "audio/webm"
-                      : "video/webm"
-                  )
-              }
-            );
-
-          stream
-            .getTracks()
-            .forEach(
-              track=>
-                track.stop()
-            );
-
-          mediaRecorder.current =
-            null;
-
-          setRecording(null);
-
-          await uploadMedia(
-            blob,
-            blob.type,
-            kind
-          );
-        };
-
-
-      recorder.start();
-
-      mediaRecorder.current =
-        recorder;
-
-      setRecording(kind);
-
-      setTimeout(()=>{
-
-        if(
-          mediaRecorder.current &&
-          mediaRecorder.current.state ===
-            "recording"
-        ) {
-
-          mediaRecorder.current.stop();
-
-        }
-
-      },60000);
-
-    } catch(err) {
-
-      console.error(err);
-
-      alert(
-        "Camera/Microphone permission is required."
-      );
-
-      setRecording(null);
-    }
-  }
-
-
-  /* UPLOAD AUDIO / VIDEO */
-
-  async function uploadMedia(
-    blob,
-    mimeType,
-    kind
-  ) {
-
-    setSending(true);
-
-    try {
-
-      const extension =
-        kind === "audio"
-          ? "webm"
-          : "webm";
-
-      const storageRef =
-        ref(
-          storage,
-          `chatMedia/${chatId}/${Date.now()}-${user.uid}.${extension}`
-        );
-
-      await uploadBytes(
-        storageRef,
-        blob,
+    typingTimer.current = setTimeout(() => {
+      updateDoc(
+        doc(db, "chats", chatId),
         {
-          contentType:
-            mimeType
+          [`typing.${user.uid}`]: false
         }
-      );
-
-      const url =
-        await getDownloadURL(
-          storageRef
-        );
-
-      await setDoc(
-        chatDoc,
-        {
-          members:[
-            user.uid,
-            other.uid
-          ],
-          lastMessage:
-            kind === "audio"
-              ? "🎤 Voice message"
-              : "🎥 Video message",
-          updatedAt:
-            serverTimestamp(),
-          typingUid:null
-        },
-        {merge:true}
-      );
-
-      await addDoc(
-        collection(
-          db,
-          "chats",
-          chatId,
-          "messages"
-        ),
-        {
-          senderId:user.uid,
-          senderName:
-            user.displayName ||
-            user.email,
-          text:"",
-          imageURL:"",
-          mediaURL:url,
-          mediaType:kind,
-          mimeType:mimeType,
-          createdAt:
-            serverTimestamp(),
-          likes:[],
-          seenBy:[],
-          edited:false,
-          deletedForEveryone:false,
-          deletedFor:[]
-        }
-      );
-
-    } catch(err) {
-
-      console.error(err);
-
-      alert(
-        "Media sending failed. Check Firebase Storage Rules."
-      );
-
-    } finally {
-
-      setSending(false);
-
-    }
+      ).catch(() => {});
+    }, 1800);
   }
-
-
-  function stopRecording() {
-
-    if(
-      mediaRecorder.current &&
-      mediaRecorder.current.state ===
-        "recording"
-    ) {
-
-      mediaRecorder.current.stop();
-
-    }
-  }
-
-
-  /* EDIT */
-
-  function startEdit(message) {
-
-    if(
-      message.senderId !== user.uid ||
-      message.deletedForEveryone
-    ) {
-      return;
-    }
-
-    const created =
-      message.createdAt?.toMillis?.();
-
-    if(!created) {
-
-      alert(
-        "Try again in a moment."
-      );
-
-      return;
-    }
-
-    if(
-      Date.now() - created >
-      3600000
-    ) {
-
-      alert(
-        "Messages can only be edited within 1 hour."
-      );
-
-      return;
-    }
-
-    setEditingId(
-      message.id
-    );
-
-    setEditingText(
-      message.text || ""
-    );
-
-    setMenuId(null);
-  }
-
-
-  async function saveEdit(message) {
-
-    const clean =
-      editingText.trim();
-
-    if(!clean) {
-      return;
-    }
-
-    const created =
-      message.createdAt?.toMillis?.();
-
-    if(
-      !created ||
-      Date.now() - created >
-        3600000
-    ) {
-
-      alert(
-        "Edit time expired."
-      );
-
-      setEditingId(null);
-
-      return;
-    }
-
-    try {
-
-      await updateDoc(
-        doc(
-          db,
-          "chats",
-          chatId,
-          "messages",
-          message.id
-        ),
-        {
-          text:clean,
-          edited:true,
-          updatedAt:
-            serverTimestamp()
-        }
-      );
-
-      setEditingId(null);
-      setEditingText("");
-
-    } catch(err) {
-
-      console.error(err);
-
-      alert(
-        "Edit failed. Check Firestore Rules."
-      );
-    }
-  }
-
-
-  /* LIKE */
 
   async function toggleLike(message) {
+    const liked = (message.likes || []).includes(
+      user.uid
+    );
 
-    try {
-
-      const liked =
-        message.likes?.includes(
-          user.uid
-        );
-
-      await updateDoc(
-        doc(
-          db,
-          "chats",
-          chatId,
-          "messages",
-          message.id
-        ),
-        {
-          likes:
-            liked
-              ? arrayRemove(user.uid)
-              : arrayUnion(user.uid)
-        }
-      );
-
-    } catch(err) {
-
-      console.error(err);
-    }
+    await updateDoc(
+      doc(
+        db,
+        "chats",
+        chatId,
+        "messages",
+        message.id
+      ),
+      {
+        likes: liked
+          ? arrayRemove(user.uid)
+          : arrayUnion(user.uid)
+      }
+    );
   }
-
-
-  /* DELETE FOR ME */
 
   async function deleteForMe(message) {
-
-    try {
-
-      await updateDoc(
-        doc(
-          db,
-          "chats",
-          chatId,
-          "messages",
-          message.id
-        ),
-        {
-          deletedFor:
-            arrayUnion(user.uid)
-        }
-      );
-
-      setMenuId(null);
-
-    } catch(err) {
-
-      console.error(err);
-
-      alert(
-        "Delete failed. Check Firestore Rules."
-      );
-    }
+    await updateDoc(
+      doc(
+        db,
+        "chats",
+        chatId,
+        "messages",
+        message.id
+      ),
+      {
+        deletedFor: arrayUnion(user.uid)
+      }
+    );
   }
-
-
-  /* DELETE FOR EVERYONE */
 
   async function deleteForEveryone(message) {
+    if (message.senderId !== user.uid) return;
 
-    if(
-      message.senderId !== user.uid
-    ) {
-      return;
-    }
+    await updateDoc(
+      doc(
+        db,
+        "chats",
+        chatId,
+        "messages",
+        message.id
+      ),
+      {
+        deletedEveryone: true,
+        text: "This message was deleted.",
+        url: "",
+        type: "text"
+      }
+    );
+  }
 
-    if(
-      !window.confirm(
-        "Delete this message for everyone?"
-      )
-    ) {
+  async function startRecording() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      alert("Audio recording is not supported.");
       return;
     }
 
     try {
+      const stream =
+        await navigator.mediaDevices.getUserMedia({
+          audio: true
+        });
 
-      await updateDoc(
-        doc(
-          db,
-          "chats",
-          chatId,
-          "messages",
-          message.id
-        ),
-        {
-          deletedForEveryone:true,
-          text:"",
-          imageURL:"",
-          mediaURL:""
+      const recorder =
+        new MediaRecorder(stream);
+
+      recordedChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(
+            event.data
+          );
         }
-      );
+      };
 
-      setMenuId(null);
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
 
-    } catch(err) {
+        const blob = new Blob(
+          recordedChunksRef.current,
+          { type: "audio/webm" }
+        );
 
-      console.error(err);
+        const audioFile = new File(
+          [blob],
+          `voice_${Date.now()}.webm`,
+          { type: "audio/webm" }
+        );
 
-      alert(
-        "Delete failed. Check Firestore Rules."
-      );
+        try {
+          const url = await uploadFile(audioFile);
+          await sendMessage("audio", url);
+        } catch (e) {
+          console.error(e);
+          alert("Voice message upload failed.");
+        }
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setRecording(true);
+    } catch (e) {
+      console.error(e);
+      alert("Microphone permission is required.");
     }
   }
 
+  function stopRecording() {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
+      mediaRecorderRef.current.stop();
+    }
 
-  /* TIME */
+    setRecording(false);
+  }
 
-  function time(timestamp) {
+  function renderTicks(message) {
+    const status = messageStatus(
+      message,
+      user.uid
+    );
 
-    try {
-
+    if (status === "seen") {
       return (
-        timestamp
-          ?.toDate?.()
-          ?.toLocaleTimeString(
-            [],
-            {
-              hour:"2-digit",
-              minute:"2-digit"
-            }
-          ) || ""
+        <span className="ticks seen">
+          ✓✓
+        </span>
       );
-
-    } catch {
-
-      return "";
     }
-  }
 
+    if (status === "delivered") {
+      return (
+        <span className="ticks">
+          ✓✓
+        </span>
+      );
+    }
+
+    return (
+      <span className="ticks">
+        ✓
+      </span>
+    );
+  }
 
   return (
-    <div className="chat">
-
-      <div className="chat-head">
-
+    <div className="chatPage">
+      <div className="chatHeader">
         <button
-          className="back"
+          className="iconBtn"
           onClick={onBack}
         >
           ←
         </button>
 
-        <Avatar user={other}/>
+        <Avatar user={other} small />
 
-        <div className="chat-head-info">
-
-          <b>
-            {other.name || other.email}
-          </b>
-
-          <div className="chat-status">
-
-            {
-              typing
-                ? "typing..."
-                : other.online
-                  ? "Online"
-                  : "Offline"
-            }
-
+        <div className="chatHeaderInfo">
+          <div className="chatHeaderName">
+            {safeName(other)}
           </div>
 
+          <div className="chatHeaderStatus">
+            {other.online
+              ? "online"
+              : other.lastSeen
+              ? `last seen ${dateTimeText(
+                  other.lastSeen
+                )}`
+              : "offline"}
+          </div>
         </div>
 
-      </div>
+        <button
+          className="iconBtn"
+          title="Audio call"
+          onClick={() =>
+            onStartCall(other, "audio")
+          }
+        >
+          ☎
+        </button>
 
+        <button
+          className="iconBtn"
+          title="Video call"
+          onClick={() =>
+            onStartCall(other, "video")
+          }
+        >
+          📹
+        </button>
+      </div>
 
       <div
         className="messages"
-        ref={messagesBox}
-        onClick={()=>
-          setMenuId(null)
-        }
+        ref={messagesRef}
+        onClick={markSeen}
       >
+        {messages
+          .filter(
+            (m) =>
+              !(m.deletedFor || []).includes(
+                user.uid
+              )
+          )
+          .map((m) => {
+            const mine =
+              m.senderId === user.uid;
 
-        {messages.map(message=>{
-
-          if(
-            message.deletedFor?.includes(
-              user.uid
-            )
-          ) {
-            return null;
-          }
-
-          const mine =
-            message.senderId ===
-            user.uid;
-
-          const seen =
-            message.seenBy?.includes(
-              other.uid
-            );
-
-          const liked =
-            message.likes?.includes(
-              user.uid
-            );
-
-          return (
-
-            <div
-              className={
-                "row "+
-                (
-                  mine
-                    ? "mine"
-                    : "other"
-                )
-              }
-              key={message.id}
-            >
-
+            return (
               <div
-                className="bubble"
-                onClick={e=>
-                  e.stopPropagation()
-                }
+                key={m.id}
+                className={`messageLine ${
+                  mine ? "mine" : ""
+                }`}
               >
-
-                <div className="menu">
-
-                  <button
-                    onClick={()=>
-                      setMenuId(
-                        menuId === message.id
-                          ? null
-                          : message.id
-                      )
-                    }
+                {!mine && (
+                  <div
+                    style={{
+                      alignSelf: "flex-end",
+                      marginRight: 5
+                    }}
                   >
-                    ⋮
-                  </button>
-
-                  {menuId === message.id && (
-
-                    <div className="menu-panel">
-
-                      {mine &&
-                       !message.deletedForEveryone && (
-
-                        <button
-                          onClick={()=>
-                            startEdit(
-                              message
-                            )
-                          }
-                        >
-                          ✏️ Edit
-                        </button>
-
-                      )}
-
-                      {!message.deletedForEveryone && (
-
-                        <button
-                          onClick={()=>
-                            deleteForMe(
-                              message
-                            )
-                          }
-                        >
-                          🗑 Delete for me
-                        </button>
-
-                      )}
-
-                      {mine &&
-                       !message.deletedForEveryone && (
-
-                        <button
-                          onClick={()=>
-                            deleteForEveryone(
-                              message
-                            )
-                          }
-                        >
-                          🚫 Delete for everyone
-                        </button>
-
-                      )}
-
-                    </div>
-
-                  )}
-
-                </div>
-
-
-                {message.deletedForEveryone ? (
-
-                  <span className="deleted">
-                    🚫 This message was deleted
-                  </span>
-
-                ) : (
-
-                  <>
-
-                    {message.imageURL && (
-
-                      <img
-                        className="image"
-                        src={message.imageURL}
-                        alt="sent"
-                      />
-
-                    )}
-
-
-                    {message.mediaType === "audio" &&
-                     message.mediaURL && (
-
-                      <audio
-                        className="media"
-                        controls
-                        src={message.mediaURL}
-                      />
-
-                    )}
-
-
-                    {message.mediaType === "video" &&
-                     message.mediaURL && (
-
-                      <video
-                        className="media"
-                        controls
-                        playsInline
-                        src={message.mediaURL}
-                      />
-
-                    )}
-
-
-                    {editingId === message.id ? (
-
-                      <div className="editbox">
-
-                        <input
-                          value={editingText}
-                          onChange={e=>
-                            setEditingText(
-                              e.target.value
-                            )
-                          }
-                        />
-
-                        <button
-                          className="save"
-                          onClick={()=>
-                            saveEdit(
-                              message
-                            )
-                          }
-                        >
-                          Save
-                        </button>
-
-                        <button
-                          className="cancel"
-                          onClick={()=>{
-                            setEditingId(null);
-                            setEditingText("");
-                          }}
-                        >
-                          Cancel
-                        </button>
-
-                      </div>
-
-                    ) : (
-
-                      message.text && (
-
-                        <div className="text">
-
-                          {message.text}
-
-                          {message.edited && (
-                            <span className="edited">
-                              edited
-                            </span>
-                          )}
-
-                        </div>
-
-                      )
-
-                    )}
-
-
-                    <div className="time-line">
-
-                      <span className="time">
-                        {time(
-                          message.createdAt
-                        )}
-                      </span>
-
-                      {mine && (
-
-                        seen
-                          ? (
-                            <EyeIcon/>
-                          )
-                          : (
-                            <span className="tick">
-                              ✓
-                            </span>
-                          )
-
-                      )}
-
-                    </div>
-
-
-                    <button
-                      className={
-                        "heart "+
-                        (
-                          liked
-                            ? "liked"
-                            : ""
-                        )
-                      }
-                      onClick={()=>
-                        toggleLike(
-                          message
-                        )
-                      }
-                    >
-                      {liked ? "♥" : "♡"}
-                      {" "}
-                      {message.likes?.length || 0}
-                    </button>
-
-                  </>
-
+                    <Avatar
+                      user={other}
+                      small
+                    />
+                  </div>
                 )}
 
+                <div className="bubble">
+                  {m.deletedEveryone ? (
+                    <div
+                      style={{
+                        opacity: .6,
+                        fontStyle: "italic"
+                      }}
+                    >
+                      This message was deleted.
+                    </div>
+                  ) : (
+                    <>
+                      {m.type === "text" && (
+                        <div className="bubbleText">
+                          {m.text}
+                        </div>
+                      )}
+
+                      {m.type === "image" &&
+                        m.url && (
+                          <img
+                            className="messageMedia"
+                            src={m.url}
+                            alt=""
+                          />
+                        )}
+
+                      {m.type === "video" &&
+                        m.url && (
+                          <video
+                            className="messageMedia"
+                            src={m.url}
+                            controls
+                          />
+                        )}
+
+                      {m.type === "audio" &&
+                        m.url && (
+                          <audio
+                            src={m.url}
+                            controls
+                            style={{
+                              maxWidth: "250px"
+                            }}
+                          />
+                        )}
+                    </>
+                  )}
+
+                  <div className="messageMeta">
+                    {m.edited && (
+                      <span>edited</span>
+                    )}
+
+                    <span>
+                      {timeText(m.createdAt)}
+                    </span>
+
+                    {mine &&
+                      renderTicks(m)}
+
+                    {(m.likes || []).length > 0 && (
+                      <span>❤️</span>
+                    )}
+                  </div>
+
+                  <div className="messageMenu">
+                    <button
+                      onClick={() =>
+                        toggleLike(m)
+                      }
+                    >
+                      {(m.likes || []).includes(
+                        user.uid
+                      )
+                        ? "♥"
+                        : "♡"}
+                    </button>
+
+                    {mine &&
+                      m.type === "text" &&
+                      !m.deletedEveryone && (
+                        <button
+                          onClick={() => {
+                            setEditing(m);
+                            setText(
+                              m.text || ""
+                            );
+                          }}
+                        >
+                          Edit
+                        </button>
+                      )}
+
+                    <button
+                      onClick={() =>
+                        deleteForMe(m)
+                      }
+                    >
+                      Delete
+                    </button>
+
+                    {mine &&
+                      !m.deletedEveryone && (
+                        <button
+                          onClick={() =>
+                            deleteForEveryone(m)
+                          }
+                        >
+                          Delete all
+                        </button>
+                      )}
+                  </div>
+                </div>
               </div>
+            );
+          })}
 
-            </div>
-
-          );
-
-        })}
-
-
-        {typing && (
-
-          <div className="typing">
-            typing...
+        {messages.length === 0 && (
+          <div className="empty">
+            Start your conversation 👋
           </div>
-
         )}
-
       </div>
 
-
-      {recording && (
-
-        <div className="recording">
-
-          <span>
-            {
-              recording === "audio"
-                ? "🎤 Recording voice..."
-                : "🎥 Recording video..."
-            }
-          </span>
-
-          <button
-            className="danger"
-            onClick={stopRecording}
-          >
-            Stop
-          </button>
-
+      {typing && (
+        <div className="typing">
+          {safeName(other)} is typing...
         </div>
-
       )}
 
-
-      {file && (
-
+      {editing && (
         <div
           style={{
-            background:"#fff",
-            padding:"7px 12px",
-            fontSize:"12px",
-            display:"flex",
-            justifyContent:"space-between"
+            padding: "7px 12px",
+            background: "#fff7ed",
+            color: "#9a3412",
+            fontSize: 12,
+            display: "flex",
+            justifyContent: "space-between"
           }}
         >
-
-          <span>
-            📎 {file.name}
-          </span>
+          <span>Editing message</span>
 
           <button
-            className="danger"
-            onClick={()=>
-              setFile(null)
-            }
+            className="linkBtn"
+            onClick={() => {
+              setEditing(null);
+              setText("");
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {recording && (
+        <div
+          style={{
+            padding: "7px 12px",
+            background: "#fee2e2",
+            color: "#b91c1c",
+            fontSize: 12,
+            textAlign: "center"
+          }}
+        >
+          🔴 Recording... release/press 🎤 to stop
+        </div>
+      )}
+
+      {file && (
+        <div
+          style={{
+            padding: "7px 12px",
+            background: "#f1f5f9",
+            fontSize: 12
+          }}
+        >
+          📎 {file.name}
+          <button
+            className="linkBtn"
+            style={{ marginLeft: 8 }}
+            onClick={() => setFile(null)}
           >
             Remove
           </button>
-
         </div>
-
       )}
 
-
-      <div className="composer-wrap">
-
-        <div className="composer">
-
-          <label className="file-label">
-
-            📷
-
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFile}
-            />
-
-          </label>
-
-
-          <button
-            className="icon"
-            title="Voice message"
-            onClick={()=>
-              startRecording("audio")
-            }
-            disabled={!!recording}
-          >
-            🎤
-          </button>
-
-
-          <button
-            className="icon"
-            title="Video message"
-            onClick={()=>
-              startRecording("video")
-            }
-            disabled={!!recording}
-          >
-            🎥
-          </button>
-
-
+      <div className="composer">
+        <label
+          className="composerIcon"
+          title="Attach image/video/audio"
+        >
+          📎
           <input
-            className="textbox"
-            placeholder={
-              file
-                ? "Press send to send file"
-                : "Type a message..."
-            }
-            value={text}
-            onChange={e=>
-              handleTyping(
-                e.target.value
+            type="file"
+            accept="image/*,video/*,audio/*"
+            hidden
+            onChange={(e) =>
+              setFile(
+                e.target.files?.[0] || null
               )
             }
-            onKeyDown={e=>{
-
-              if(
-                e.key === "Enter" &&
-                !e.shiftKey
-              ) {
-
-                e.preventDefault();
-
-                sendTextOrImage();
-
-              }
-
-            }}
           />
+        </label>
 
+        <button
+          className="composerIcon"
+          title="Voice recorder"
+          onClick={
+            recording
+              ? stopRecording
+              : startRecording
+          }
+        >
+          {recording ? "⏹" : "🎤"}
+        </button>
 
-          <button
-            className="send"
-            onClick={sendTextOrImage}
-            disabled={sending}
-          >
-            ➤
-          </button>
+        <input
+          type="text"
+          placeholder={
+            editing
+              ? "Edit message..."
+              : "Message"
+          }
+          value={text}
+          onChange={(e) =>
+            toggleTyping(e.target.value)
+          }
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              sendTextOrFile();
+            }
+          }}
+        />
 
-        </div>
-
+        <button
+          className="sendBtn"
+          onClick={sendTextOrFile}
+        >
+          ➤
+        </button>
       </div>
-
     </div>
   );
 }
 
+/* =========================================================
+   CHATS LIST
+========================================================= */
+
+function Chats({
+  user,
+  users,
+  onOpenChat,
+  onStartCall
+}) {
+  const [chats, setChats] = useState([]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const q = query(
+      collection(db, "chats"),
+      where(
+        "members",
+        "array-contains",
+        user.uid
+      ),
+      limit(100)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      const list = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data()
+      }));
+
+      list.sort((a, b) => {
+        const ap =
+          (a.pinnedBy || []).includes(user.uid)
+            ? 1
+            : 0;
+
+        const bp =
+          (b.pinnedBy || []).includes(user.uid)
+            ? 1
+            : 0;
+
+        if (ap !== bp) return bp - ap;
+
+        const at =
+          a.updatedAt?.toMillis?.() || 0;
+
+        const bt =
+          b.updatedAt?.toMillis?.() || 0;
+
+        return bt - at;
+      });
+
+      setChats(list);
+    });
+
+    return () => unsub();
+  }, [user]);
+
+  const visible = chats.filter(
+    (c) =>
+      !(c.hiddenBy || []).includes(user.uid) &&
+      !(c.deletedBy || []).includes(user.uid)
+  );
+
+  async function pinChat(chat) {
+    const pinned = chats.filter((c) =>
+      (c.pinnedBy || []).includes(user.uid)
+    );
+
+    const isPinned =
+      (chat.pinnedBy || []).includes(
+        user.uid
+      );
+
+    if (!isPinned && pinned.length >= 10) {
+      alert("Maximum 10 chats can be pinned.");
+      return;
+    }
+
+    await updateDoc(doc(db, "chats", chat.id), {
+      pinnedBy: isPinned
+        ? arrayRemove(user.uid)
+        : arrayUnion(user.uid)
+    });
+  }
+
+  async function hideChat(chat) {
+    await updateDoc(doc(db, "chats", chat.id), {
+      hiddenBy: arrayUnion(user.uid)
+    });
+  }
+
+  async function deleteChat(chat) {
+    const ok = window.confirm(
+      "Delete this chat for you?"
+    );
+
+    if (!ok) return;
+
+    await updateDoc(doc(db, "chats", chat.id), {
+      deletedBy: arrayUnion(user.uid)
+    });
+  }
+
+  return (
+    <div className="page">
+      <div className="pageHead">
+        <div>
+          <div className="pageTitle">
+            Chats
+          </div>
+          <div className="subtle">
+            Recent chats appear first
+          </div>
+        </div>
+      </div>
+
+      <div className="chatList">
+        {visible.map((chat) => {
+          const otherId = otherMember(
+            chat,
+            user.uid
+          );
+
+          const other =
+            users.find((u) => u.uid === otherId) ||
+            {
+              uid: otherId,
+              displayName:
+                chat.lastMessage?.senderId ===
+                user.uid
+                  ? "Friend"
+                  : "User"
+            };
+
+          const pinned =
+            (chat.pinnedBy || []).includes(
+              user.uid
+            );
+
+          return (
+            <div
+              key={chat.id}
+              className="chatRow"
+            >
+              <Avatar user={other} />
+
+              <div
+                className="chatRowMain"
+                onClick={() =>
+                  onOpenChat(other, chat)
+                }
+                style={{ cursor: "pointer" }}
+              >
+                <div className="chatRowTop">
+                  <div className="chatName">
+                    {safeName(other)}
+                    {pinned && " 📌"}
+                  </div>
+
+                  <div className="chatTime">
+                    {timeText(
+                      chat.updatedAt
+                    )}
+                  </div>
+                </div>
+
+                <div className="chatPreview">
+                  {formatMessagePreview(
+                    chat.lastMessage
+                  )}
+                </div>
+              </div>
+
+              <div className="chatActions">
+                <button
+                  className={`miniBtn ${
+                    pinned ? "pinOn" : ""
+                  }`}
+                  title={
+                    pinned
+                      ? "Unpin"
+                      : "Pin"
+                  }
+                  onClick={() =>
+                    pinChat(chat)
+                  }
+                >
+                  📌
+                </button>
+
+                <button
+                  className="miniBtn"
+                  title="Hide"
+                  onClick={() =>
+                    hideChat(chat)
+                  }
+                >
+                  🙈
+                </button>
+
+                <button
+                  className="miniBtn"
+                  title="Delete"
+                  onClick={() =>
+                    deleteChat(chat)
+                  }
+                >
+                  🗑
+                </button>
+              </div>
+            </div>
+          );
+        })}
+
+        {visible.length === 0 && (
+          <div className="empty">
+            No chats yet.
+            <br />
+            Go to People and add friends.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   PEOPLE
+========================================================= */
+
+function People({
+  user,
+  users,
+  me,
+  onOpenChat
+}) {
+  const [phone, setPhone] = useState("");
+  const [results, setResults] = useState([]);
+  const [history, setHistory] = useState(
+    me?.searchHistory || []
+  );
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setHistory(me?.searchHistory || []);
+  }, [me?.searchHistory]);
+
+  async function saveHistory(number) {
+    const cleaned = normalizePhone(number);
+
+    if (!cleaned) return;
+
+    const next = [
+      cleaned,
+      ...history.filter(
+        (x) => x !== cleaned
+      )
+    ].slice(0, 20);
+
+    setHistory(next);
+
+    await updateDoc(
+      doc(db, "users", user.uid),
+      {
+        searchHistory: next
+      }
+    ).catch(() => {});
+  }
+
+  async function search() {
+    const cleaned = normalizePhone(phone);
+
+    if (!cleaned) {
+      setResults([]);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await saveHistory(cleaned);
+
+      const q = query(
+        collection(db, "users"),
+        where(
+          "phoneNumber",
+          "==",
+          cleaned
+        ),
+        limit(10)
+      );
+
+      const snap = await getDocs(q);
+
+      const list = snap.docs
+        .map((d) => ({
+          uid: d.id,
+          ...d.data()
+        }))
+        .filter(
+          (u) => u.uid !== user.uid
+        );
+
+      setResults(list);
+    } catch (e) {
+      console.error(e);
+      alert("Search failed.");
+    }
+
+    setLoading(false);
+  }
+
+  async function clearHistory() {
+    await updateDoc(
+      doc(db, "users", user.uid),
+      {
+        searchHistory: []
+      }
+    ).catch(() => {});
+
+    setHistory([]);
+  }
+
+  function isFriend(uid) {
+    return (me?.friends || []).includes(
+      uid
+    );
+  }
+
+  function hasSentRequest(uid) {
+    return (me?.sentRequests || []).some(
+      (r) =>
+        typeof r === "string"
+          ? r === uid
+          : r.uid === uid
+    );
+  }
+
+  function hasIncoming(uid) {
+    return (me?.friendRequests || []).some(
+      (r) =>
+        typeof r === "string"
+          ? r === uid
+          : r.uid === uid
+    );
+  }
+
+  async function sendRequest(person) {
+    if (
+      isFriend(person.uid) ||
+      hasSentRequest(person.uid)
+    ) {
+      return;
+    }
+
+    const request = {
+      uid: user.uid,
+      name: safeName(user),
+      photoURL: user.photoURL || ""
+    };
+
+    await updateDoc(
+      doc(db, "users", person.uid),
+      {
+        friendRequests: arrayUnion(request)
+      }
+    );
+
+    await updateDoc(
+      doc(db, "users", user.uid),
+      {
+        sentRequests: arrayUnion({
+          uid: person.uid,
+          name: safeName(person)
+        })
+      }
+    );
+
+    alert("Friend request sent.");
+  }
+
+  async function acceptRequest(request) {
+    const requestUid =
+      typeof request === "string"
+        ? request
+        : request.uid;
+
+    const friend = users.find(
+      (u) => u.uid === requestUid
+    );
+
+    if (!friend) return;
+
+    await updateDoc(
+      doc(db, "users", user.uid),
+      {
+        friends: arrayUnion(requestUid),
+        friendRequests:
+          arrayRemove(request)
+      }
+    );
+
+    await updateDoc(
+      doc(db, "users", requestUid),
+      {
+        friends: arrayUnion(user.uid),
+        sentRequests:
+          arrayRemove({
+            uid: user.uid,
+            name: safeName(user)
+          })
+      }
+    );
+  }
+
+  async function rejectRequest(request) {
+    await updateDoc(
+      doc(db, "users", user.uid),
+      {
+        friendRequests:
+          arrayRemove(request)
+      }
+    );
+  }
+
+  async function poke(person) {
+    const request = {
+      uid: user.uid,
+      name: safeName(user),
+      type: "poke",
+      createdAt: Date.now()
+    };
+
+    await updateDoc(
+      doc(db, "users", person.uid),
+      {
+        pokes: arrayUnion(request)
+      }
+    ).catch(() => {});
+
+    alert(`Poked ${safeName(person)} 👋`);
+  }
+
+  return (
+    <div className="page">
+      <div className="pageHead">
+        <div>
+          <div className="pageTitle">
+            People
+          </div>
+          <div className="subtle">
+            Search friends by mobile number
+          </div>
+        </div>
+      </div>
+
+      <div className="searchBox">
+        <input
+          className="input"
+          placeholder="Mobile number"
+          value={phone}
+          onChange={(e) =>
+            setPhone(e.target.value)
+          }
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              search();
+            }
+          }}
+        />
+
+        <button
+          className="primary"
+          onClick={search}
+        >
+          {loading ? "..." : "Search"}
+        </button>
+      </div>
+
+      {history.length > 0 && (
+        <div className="history">
+          <div className="historyTitle">
+            Search history
+          </div>
+
+          <div className="historyItems">
+            {history.map((item) => (
+              <button
+                key={item}
+                className="historyChip"
+                onClick={() => {
+                  setPhone(item);
+                  setTimeout(
+                    () => search(),
+                    0
+                  );
+                }}
+              >
+                {item}
+              </button>
+            ))}
+
+            <button
+              className="historyChip"
+              onClick={clearHistory}
+            >
+              Clear history
+            </button>
+          </div>
+        </div>
+      )}
+
+      {(me?.friendRequests || []).length >
+        0 && (
+        <div>
+          <div
+            style={{
+              padding: "14px 17px",
+              fontWeight: 800,
+              background: "#f8fafc"
+            }}
+          >
+            Friend requests
+          </div>
+
+          {(me?.friendRequests || []).map(
+            (request, index) => {
+              const uid =
+                typeof request === "string"
+                  ? request
+                  : request.uid;
+
+              const person =
+                users.find(
+                  (u) => u.uid === uid
+                ) || request;
+
+              return (
+                <div
+                  className="personRow"
+                  key={uid + index}
+                >
+                  <Avatar user={person} />
+
+                  <div className="personInfo">
+                    <div className="personName">
+                      {safeName(person)}
+                    </div>
+
+                    <div className="personBio">
+                      Wants to be your friend
+                    </div>
+                  </div>
+
+                  <div className="personActions">
+                    <button
+                      className="primary"
+                      onClick={() =>
+                        acceptRequest(
+                          request
+                        )
+                      }
+                    >
+                      Accept
+                    </button>
+
+                    <button
+                      className="secondary"
+                      onClick={() =>
+                        rejectRequest(
+                          request
+                        )
+                      }
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+          )}
+        </div>
+      )}
+
+      {results.map((person) => {
+        const friend = isFriend(person.uid);
+        const sent = hasSentRequest(person.uid);
+        const incoming = hasIncoming(person.uid);
+
+        return (
+          <div
+            className="personRow"
+            key={person.uid}
+          >
+            <Avatar user={person} />
+
+            <div className="personInfo">
+              <div className="personName">
+                {safeName(person)}
+              </div>
+
+              <div className="personBio">
+                {person.username
+                  ? `@${person.username}`
+                  : person.bio ||
+                    "Chatdo user"}
+              </div>
+            </div>
+
+            <div className="personActions">
+              {friend ? (
+                <>
+                  <button
+                    className="primary"
+                    onClick={() =>
+                      onOpenChat(person)
+                    }
+                  >
+                    💬 Chat
+                  </button>
+
+                  <button
+                    className="secondary"
+                    onClick={() =>
+                      poke(person)
+                    }
+                  >
+                    👋 Poke
+                  </button>
+                </>
+              ) : incoming ? (
+                <span className="subtle">
+                  Request received ↑
+                </span>
+              ) : sent ? (
+                <span className="subtle">
+                  Request sent ✓
+                </span>
+              ) : (
+                <>
+                  <button
+                    className="primary"
+                    onClick={() =>
+                      sendRequest(person)
+                    }
+                  >
+                    Add friend
+                  </button>
+
+                  <button
+                    className="secondary"
+                    onClick={() =>
+                      poke(person)
+                    }
+                  >
+                    👋 Poke
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })}
+
+      {results.length === 0 &&
+        history.length === 0 && (
+          <div className="empty">
+            Enter a mobile number to find a
+            Chatdo user.
+          </div>
+        )}
+
+      {results.length === 0 &&
+        phone &&
+        !loading && (
+          <div className="empty">
+            No user found for this number.
+          </div>
+        )}
+    </div>
+  );
+}
 
 /* =========================================================
    STORIES
 ========================================================= */
 
-function Stories({user}) {
-
-  const [stories,setStories] =
-    useState([]);
-
-  const [text,setText] =
-    useState("");
-
-  const [image,setImage] =
+function Stories({ user, users }) {
+  const [stories, setStories] = useState([]);
+  const [activeStory, setActiveStory] =
     useState(null);
 
-  const [posting,setPosting] =
+  const [showAdd, setShowAdd] =
     useState(false);
 
+  const [storyText, setStoryText] =
+    useState("");
 
-  useEffect(()=>{
+  const [storyFile, setStoryFile] =
+    useState(null);
 
-    const q =
-      query(
-        storiesRef,
-        orderBy("createdAt","desc"),
-        limit(50)
-      );
+  const [posting, setPosting] =
+    useState(false);
 
-    return onSnapshot(
-      q,
-      snapshot=>{
-
-        const now =
-          Date.now();
-
-        const valid =
-          snapshot.docs
-            .map(d=>({
-              id:d.id,
-              ...d.data()
-            }))
-            .filter(story=>{
-
-              if(
-                !story.expiresAt
-              ) {
-                return true;
-              }
-
-              const expiry =
-                story.expiresAt
-                  ?.toMillis?.();
-
-              return !expiry ||
-                expiry > now;
-            });
-
-        setStories(valid);
-
-      }
+  useEffect(() => {
+    const q = query(
+      collection(db, "stories"),
+      orderBy("createdAt", "desc"),
+      limit(100)
     );
 
-  },[]);
+    const unsub = onSnapshot(q, (snap) => {
+      const now = Date.now();
 
+      const list = snap.docs
+        .map((d) => ({
+          id: d.id,
+          ...d.data()
+        }))
+        .filter((s) => {
+          if (!s.expiresAt) return true;
 
-  /* DELETE OWN EXPIRED STORIES */
+          const expiry =
+            typeof s.expiresAt?.toMillis ===
+            "function"
+              ? s.expiresAt.toMillis()
+              : new Date(
+                  s.expiresAt
+                ).getTime();
 
-  useEffect(()=>{
+          return expiry > now;
+        });
 
-    async function cleanup() {
+      list.sort((a, b) => {
+        const am =
+          a.uid === user.uid ? 1 : 0;
 
-      const now =
-        Date.now();
+        const bm =
+          b.uid === user.uid ? 1 : 0;
 
-      for(
-        const story of stories
-      ) {
+        if (am !== bm) return bm - am;
 
-        const expiry =
-          story.expiresAt
-            ?.toMillis?.();
+        const at =
+          a.createdAt?.toMillis?.() || 0;
 
-        if(
-          story.uid === user.uid &&
-          expiry &&
-          expiry <= now
-        ) {
+        const bt =
+          b.createdAt?.toMillis?.() || 0;
 
-          await deleteDoc(
-            doc(
-              db,
-              "stories",
-              story.id
-            )
-          ).catch(()=>{});
+        return bt - at;
+      });
 
-        }
-      }
-    }
+      setStories(list);
+    });
 
-    cleanup();
-
-  },[stories,user.uid]);
-
-
-  /* POST STORY */
+    return () => unsub();
+  }, [user.uid]);
 
   async function postStory() {
-
-    if(
-      !text.trim() &&
-      !image
-    ) {
-
-      alert(
-        "Write something or choose an image."
-      );
-
+    if (!storyText.trim() && !storyFile) {
+      alert("Add text or an image.");
       return;
     }
 
     setPosting(true);
 
     try {
-
       let imageURL = "";
 
-      if(image) {
-
-        if(
-          image.size >
-          35 * 1024 * 1024
-        ) {
-
-          alert(
-            "Image must be smaller than 35 MB."
+      if (storyFile) {
+        const safeName =
+          storyFile.name.replace(
+            /[^\w.-]/g,
+            "_"
           );
 
-          setPosting(false);
-
-          return;
-        }
-
-        const storageRef =
-          ref(
-            storage,
-            `stories/${user.uid}/${Date.now()}-${image.name}`
-          );
+        const storageRef = ref(
+          storage,
+          `stories/${user.uid}/${Date.now()}_${safeName}`
+        );
 
         await uploadBytes(
           storageRef,
-          image,
-          {
-            contentType:
-              image.type
-          }
+          storyFile
         );
 
         imageURL =
@@ -3392,351 +3569,1270 @@ function Stories({user}) {
           );
       }
 
-
-      const now =
-        Date.now();
-
       await addDoc(
-        storiesRef,
+        collection(db, "stories"),
         {
-          uid:user.uid,
-          name:
-            user.displayName ||
-            user.email,
-          text:text.trim(),
-          imageURL:imageURL,
-          createdAt:
-            serverTimestamp(),
+          uid: user.uid,
+          name: safeName(user),
+          photoURL: user.photoURL || "",
+          text: storyText.trim(),
+          imageURL,
+          createdAt: serverTimestamp(),
           expiresAt:
-            Timestamp.fromMillis(
-              now + 24 * 60 * 60 * 1000
+            new Date(
+              Date.now() +
+                24 * 60 * 60 * 1000
             ),
-          likes:[]
+          likes: []
         }
       );
 
-      setText("");
-      setImage(null);
-
-      alert(
-        "Story posted."
-      );
-
-    } catch(err) {
-
-      console.error(err);
-
-      alert(
-        "Story posting failed. Check Firebase Storage/Firestore Rules."
-      );
-
-    } finally {
-
-      setPosting(false);
+      setStoryText("");
+      setStoryFile(null);
+      setShowAdd(false);
+    } catch (e) {
+      console.error(e);
+      alert("Could not post story.");
     }
+
+    setPosting(false);
   }
-
-
-  /* DELETE OWN STORY */
 
   async function deleteStory(story) {
+    if (story.uid !== user.uid) return;
 
-    if(
-      story.uid !== user.uid
-    ) {
-      return;
-    }
+    const ok = window.confirm(
+      "Delete this story?"
+    );
 
-    if(
-      !window.confirm(
-        "Delete this story?"
-      )
-    ) {
-      return;
-    }
+    if (!ok) return;
 
-    try {
-
-      await deleteDoc(
-        doc(
-          db,
-          "stories",
-          story.id
-        )
-      );
-
-    } catch(err) {
-
-      console.error(err);
-
-      alert(
-        "Story delete failed. Check Firestore Rules."
-      );
-    }
+    await deleteDoc(
+      doc(db, "stories", story.id)
+    );
   }
-
-
-  /* LIKE STORY */
 
   async function likeStory(story) {
-
-    try {
-
-      const liked =
-        story.likes?.includes(
-          user.uid
-        );
-
-      await updateDoc(
-        doc(
-          db,
-          "stories",
-          story.id
-        ),
-        {
-          likes:
-            liked
-              ? arrayRemove(user.uid)
-              : arrayUnion(user.uid)
-        }
-      );
-
-    } catch(err) {
-
-      console.error(err);
-    }
+    await updateDoc(
+      doc(db, "stories", story.id),
+      {
+        likes: (
+          story.likes || []
+        ).includes(user.uid)
+          ? arrayRemove(user.uid)
+          : arrayUnion(user.uid)
+      }
+    );
   }
 
+  const myStory = stories.find(
+    (s) => s.uid === user.uid
+  );
+
+  const otherStories = stories.filter(
+    (s) => s.uid !== user.uid
+  );
 
   return (
     <div className="page">
+      <div className="pageHead">
+        <div>
+          <div className="pageTitle">
+            Stories
+          </div>
+          <div className="subtle">
+            Tap a story to view it full screen
+          </div>
+        </div>
+      </div>
 
-      <div className="card">
-
-        <h2 style={{marginTop:0}}>
-          Stories
-        </h2>
-
-        <p className="muted">
-          Stories disappear automatically after 24 hours.
-        </p>
-
-        <textarea
-          className="textarea"
-          placeholder="Write your story..."
-          value={text}
-          onChange={e=>
-            setText(e.target.value)
-          }
-        />
-
+      <div className="storyGrid">
         <div
-          style={{
-            marginTop:8,
-            display:"flex",
-            gap:8,
-            alignItems:"center",
-            flexWrap:"wrap"
-          }}
+          className="addStory"
+          onClick={() =>
+            setShowAdd(true)
+          }
         >
+          <div>
+            <div className="plus">
+              +
+            </div>
+            <strong>
+              Add my story
+            </strong>
+          </div>
+        </div>
 
-          <label className="request">
+        {myStory && (
+          <div
+            className="storyCard"
+            onClick={() =>
+              setActiveStory(myStory)
+            }
+          >
+            {myStory.imageURL ? (
+              <img
+                src={myStory.imageURL}
+                alt=""
+              />
+            ) : (
+              <div
+                className="storyTextOnly"
+                style={{
+                  background:
+                    "linear-gradient(135deg,#111827,#334155)"
+                }}
+              >
+                {myStory.text}
+              </div>
+            )}
 
-            📷 Choose image
+            <div className="storyOverlay">
+              <div className="storyName">
+                My Story
+              </div>
 
-            <input
-              type="file"
-              accept="image/*"
+              <button
+                className="danger"
+                style={{
+                  marginTop: 7,
+                  padding: "5px 8px"
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteStory(myStory);
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        )}
+
+        {otherStories.map((story) => {
+          const liked =
+            (story.likes || []).includes(
+              user.uid
+            );
+
+          return (
+            <div
+              className="storyCard"
+              key={story.id}
+              onClick={() =>
+                setActiveStory(story)
+              }
+            >
+              {story.imageURL ? (
+                <img
+                  src={story.imageURL}
+                  alt=""
+                />
+              ) : (
+                <div
+                  className="storyTextOnly"
+                  style={{
+                    background:
+                      "linear-gradient(135deg,#1e293b,#475569)"
+                  }}
+                >
+                  {story.text}
+                </div>
+              )}
+
+              <div className="storyOverlay">
+                <div className="storyName">
+                  {story.name}
+                </div>
+
+                <button
+                  className="secondary"
+                  style={{
+                    marginTop: 7,
+                    padding: "5px 8px"
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    likeStory(story);
+                  }}
+                >
+                  {liked ? "♥" : "♡"}{" "}
+                  {(story.likes || []).length}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {showAdd && (
+        <div
+          className="storyViewer"
+          onClick={() =>
+            setShowAdd(false)
+          }
+        >
+          <div
+            style={{
+              width: "min(430px,100%)",
+              background: "white",
+              color: "#172033",
+              padding: 20,
+              borderRadius: 20
+            }}
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+          >
+            <div
               style={{
-                display:"none"
+                fontSize: 20,
+                fontWeight: 800,
+                marginBottom: 14
               }}
-              onChange={e=>
-                setImage(
-                  e.target.files?.[0] || null
+            >
+              + Add my story
+            </div>
+
+            <textarea
+              placeholder="Write something..."
+              value={storyText}
+              onChange={(e) =>
+                setStoryText(
+                  e.target.value
                 )
               }
             />
 
-          </label>
+            <label
+              className="secondary"
+              style={{
+                display: "block",
+                textAlign: "center",
+                marginTop: 10
+              }}
+            >
+              📷 Choose image
+              <input
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) =>
+                  setStoryFile(
+                    e.target.files?.[0] ||
+                      null
+                  )
+                }
+              />
+            </label>
 
-          {image && (
+            {storyFile && (
+              <div
+                style={{
+                  fontSize: 12,
+                  marginTop: 8
+                }}
+              >
+                {storyFile.name}
+              </div>
+            )}
 
-            <span className="muted">
-              {image.name}
-            </span>
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                marginTop: 15
+              }}
+            >
+              <button
+                className="primary"
+                style={{ flex: 1 }}
+                onClick={postStory}
+                disabled={posting}
+              >
+                {posting
+                  ? "Posting..."
+                  : "Add my story"}
+              </button>
 
-          )}
+              <button
+                className="secondary"
+                onClick={() =>
+                  setShowAdd(false)
+                }
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
+      {activeStory && (
+        <div className="storyViewer">
           <button
-            className="primary"
-            onClick={postStory}
-            disabled={posting}
-          >
-            {
-              posting
-                ? "Posting..."
-                : "Post story"
+            className="storyViewerClose"
+            onClick={() =>
+              setActiveStory(null)
             }
+          >
+            ×
           </button>
 
-        </div>
-
-      </div>
-
-
-      <div className="stories">
-
-        {stories.length === 0 ? (
-
-          <div className="card">
-
-            <p className="muted">
-              No active stories.
-            </p>
-
-          </div>
-
-        ) : (
-
-          stories.map(story=>{
-
-            const mine =
-              story.uid === user.uid;
-
-            const liked =
-              story.likes?.includes(
-                user.uid
-              );
-
-            return (
-
+          <div className="storyFull">
+            {activeStory.imageURL ? (
+              <img
+                src={activeStory.imageURL}
+                alt=""
+              />
+            ) : (
               <div
-                className="story"
-                key={story.id}
+                className="storyTextOnly"
+                style={{
+                  background:
+                    "linear-gradient(135deg,#111827,#475569)"
+                }}
               >
+                {activeStory.text}
+              </div>
+            )}
 
-                <div className="story-card">
-
-                  {story.imageURL ? (
-
-                    <img
-                      src={story.imageURL}
-                      alt="story"
-                    />
-
-                  ) : (
-
-                    <div
-                      style={{
-                        width:"100%",
-                        height:"100%",
-                        background:"#075e54",
-                        display:"flex",
-                        alignItems:"center",
-                        justifyContent:"center",
-                        padding:20,
-                        color:"white",
-                        textAlign:"center",
-                        fontSize:18
-                      }}
-                    >
-                      {story.text}
-                    </div>
-
-                  )}
-
-
-                  <div className="story-overlay">
-
-                    <div className="story-author">
-
-                      <Avatar user={story}/>
-
-                      <div>
-
-                        <b>
-                          {
-                            story.name ||
-                            "User"
-                          }
-                        </b>
-
-                        {mine && (
-
-                          <div className="my-story">
-                            My story
-                          </div>
-
-                        )}
-
-                      </div>
-
-                    </div>
-
-
-                    {story.text && (
-                      <div className="story-text">
-                        {story.text}
-                      </div>
-                    )}
-
-                  </div>
-
-                </div>
-
-
-                <div className="story-actions">
-
-                  <button
-                    className={
-                      "heart "+
-                      (
-                        liked
-                          ? "liked"
-                          : ""
-                      )
-                    }
-                    onClick={()=>
-                      likeStory(story)
-                    }
-                  >
-                    {liked ? "♥" : "♡"}
-                    {" "}
-                    {story.likes?.length || 0}
-                  </button>
-
-
-                  {mine && (
-
-                    <button
-                      className="danger"
-                      onClick={()=>
-                        deleteStory(
-                          story
-                        )
-                      }
-                    >
-                      Delete
-                    </button>
-
-                  )}
-
-                </div>
-
+            <div className="storyFullBottom">
+              <div
+                style={{
+                  fontWeight: 800,
+                  marginBottom: 5
+                }}
+              >
+                {activeStory.uid ===
+                user.uid
+                  ? "My Story"
+                  : activeStory.name}
               </div>
 
-            );
+              {activeStory.text && (
+                <div>
+                  {activeStory.text}
+                </div>
+              )}
 
-          })
+              <button
+                className="secondary"
+                style={{
+                  marginTop: 10
+                }}
+                onClick={() =>
+                  likeStory(activeStory)
+                }
+              >
+                {(activeStory.likes || []).includes(
+                  user.uid
+                )
+                  ? "♥ Liked"
+                  : "♡ Like"}{" "}
+                {(activeStory.likes || [])
+                  .length}
+              </button>
 
-        )}
-
-      </div>
-
+              {activeStory.uid ===
+                user.uid && (
+                <button
+                  className="danger"
+                  style={{
+                    marginLeft: 8
+                  }}
+                  onClick={async () => {
+                    await deleteStory(
+                      activeStory
+                    );
+                    setActiveStory(null);
+                  }}
+                >
+                  Delete
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
+/* =========================================================
+   CALLS PAGE
+========================================================= */
+
+function CallsPage({
+  user,
+  users,
+  onStartCall
+}) {
+  const [calls, setCalls] = useState([]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const q = query(
+      collection(db, "calls"),
+      where(
+        "members",
+        "array-contains",
+        user.uid
+      ),
+      limit(100)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      const list = snap.docs
+        .map((d) => ({
+          id: d.id,
+          ...d.data()
+        }))
+        .filter(
+          (c) =>
+            c.status !== "ringing"
+        )
+        .sort((a, b) => {
+          const at =
+            a.createdAt?.toMillis?.() ||
+            0;
+
+          const bt =
+            b.createdAt?.toMillis?.() ||
+            0;
+
+          return bt - at;
+        });
+
+      setCalls(list);
+    });
+
+    return () => unsub();
+  }, [user]);
+
+  return (
+    <div className="page">
+      <div className="pageHead">
+        <div>
+          <div className="pageTitle">
+            Calls
+          </div>
+          <div className="subtle">
+            Audio and video call history
+          </div>
+        </div>
+      </div>
+
+      {calls.length === 0 && (
+        <div className="empty">
+          No calls yet.
+        </div>
+      )}
+
+      {calls.map((call) => {
+        const outgoing =
+          call.callerId === user.uid;
+
+        const otherId = outgoing
+          ? call.calleeId
+          : call.callerId;
+
+        const other =
+          users.find(
+            (u) => u.uid === otherId
+          ) || {
+            uid: otherId,
+            displayName: outgoing
+              ? call.calleeName
+              : call.callerName,
+            photoURL: outgoing
+              ? call.calleePhoto
+              : call.callerPhoto
+          };
+
+        return (
+          <div
+            className="callRow"
+            key={call.id}
+          >
+            <div className="callIcon">
+              {call.type === "video"
+                ? "📹"
+                : "☎"}
+            </div>
+
+            <Avatar
+              user={other}
+              small
+            />
+
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: 800
+                }}
+              >
+                {safeName(other)}
+              </div>
+
+              <div className="subtle">
+                {outgoing
+                  ? "Outgoing"
+                  : "Incoming"}{" "}
+                · {call.status} ·{" "}
+                {dateTimeText(
+                  call.createdAt
+                )}
+              </div>
+            </div>
+
+            <button
+              className="secondary"
+              onClick={() =>
+                onStartCall(
+                  other,
+                  call.type
+                )
+              }
+            >
+              {call.type === "video"
+                ? "📹"
+                : "☎"}
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* =========================================================
+   SETTINGS
+========================================================= */
+
+function Settings({
+  user,
+  me,
+  onClose
+}) {
+  const [name, setName] =
+    useState(me?.name || "");
+
+  const [username, setUsername] =
+    useState(me?.username || "");
+
+  const [phone, setPhone] =
+    useState(me?.phoneNumber || "");
+
+  const [bio, setBio] =
+    useState(me?.bio || "");
+
+  const [hobbies, setHobbies] =
+    useState(me?.hobbies || "");
+
+  const [photo, setPhoto] =
+    useState(me?.photoURL || user.photoURL || "");
+
+  const [file, setFile] =
+    useState(null);
+
+  const [saving, setSaving] =
+    useState(false);
+
+  async function save() {
+    setSaving(true);
+
+    try {
+      let photoURL = photo;
+
+      if (file) {
+        const safeName =
+          file.name.replace(
+            /[^\w.-]/g,
+            "_"
+          );
+
+        const storageRef = ref(
+          storage,
+          `profiles/${user.uid}/${Date.now()}_${safeName}`
+        );
+
+        await uploadBytes(
+          storageRef,
+          file
+        );
+
+        photoURL =
+          await getDownloadURL(
+            storageRef
+          );
+      }
+
+      const cleanedPhone =
+        normalizePhone(phone);
+
+      const existingUsername =
+        me?.username?.trim() || "";
+
+      let finalUsername =
+        existingUsername;
+
+      if (!existingUsername) {
+        finalUsername =
+          username.trim().toLowerCase();
+      }
+
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          uid: user.uid,
+          name: name.trim(),
+          phoneNumber: cleanedPhone,
+          username: finalUsername,
+          bio: bio.trim(),
+          hobbies: hobbies.trim(),
+          photoURL
+        },
+        { merge: true }
+      );
+
+      await updateProfile(user, {
+        displayName: name.trim(),
+        photoURL
+      });
+
+      setPhoto(photoURL);
+      setFile(null);
+
+      alert("Profile updated.");
+    } catch (e) {
+      console.error(e);
+      alert("Could not update profile.");
+    }
+
+    setSaving(false);
+  }
+
+  return (
+    <div className="page">
+      <div className="pageHead">
+        <div>
+          <div className="pageTitle">
+            Settings
+          </div>
+          <div className="subtle">
+            Manage your Chatdo profile
+          </div>
+        </div>
+
+        {onClose && (
+          <button
+            className="secondary"
+            onClick={onClose}
+          >
+            Back
+          </button>
+        )}
+      </div>
+
+      <div className="settings">
+        <div className="profileBox">
+          <div className="profileBig">
+            {photo ? (
+              <img
+                src={photo}
+                alt=""
+              />
+            ) : (
+              safeName(me || user)
+                .charAt(0)
+                .toUpperCase()
+            )}
+          </div>
+
+          <div>
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 800
+              }}
+            >
+              {safeName(me || user)}
+            </div>
+
+            <div className="subtle">
+              {user.email}
+            </div>
+
+            <label
+              className="secondary"
+              style={{
+                display: "inline-block",
+                marginTop: 9
+              }}
+            >
+              Change profile photo
+              <input
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) =>
+                  setFile(
+                    e.target.files?.[0] ||
+                      null
+                  )
+                }
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="settingsSection">
+          <div className="settingsTitle">
+            Profile
+          </div>
+
+          <div className="settingsBody">
+            <div className="fieldLabel">
+              Name
+            </div>
+
+            <input
+              className="input"
+              value={name}
+              onChange={(e) =>
+                setName(e.target.value)
+              }
+            />
+
+            <div className="fieldLabel">
+              Username
+            </div>
+
+            <input
+              className="input"
+              value={username}
+              disabled={!!me?.username}
+              placeholder="Set your username"
+              onChange={(e) =>
+                setUsername(
+                  e.target.value
+                    .replace(/\s/g, "")
+                    .toLowerCase()
+                )
+              }
+            />
+
+            <div className="subtle">
+              {me?.username
+                ? "Username cannot be changed after it is set."
+                : "You can set your username once."}
+            </div>
+
+            <div className="fieldLabel">
+              Mobile number
+            </div>
+
+            <input
+              className="input"
+              value={phone}
+              onChange={(e) =>
+                setPhone(
+                  e.target.value
+                )
+              }
+              placeholder="Mobile number"
+            />
+
+            <div className="fieldLabel">
+              Bio
+            </div>
+
+            <textarea
+              value={bio}
+              onChange={(e) =>
+                setBio(e.target.value)
+              }
+              placeholder="About you"
+            />
+
+            <div className="fieldLabel">
+              Hobbies
+            </div>
+
+            <textarea
+              value={hobbies}
+              onChange={(e) =>
+                setHobbies(
+                  e.target.value
+                )
+              }
+              placeholder="Music, travel, sports..."
+            />
+
+            <button
+              className="primary"
+              onClick={save}
+              disabled={saving}
+            >
+              {saving
+                ? "Saving..."
+                : "Save profile"}
+            </button>
+          </div>
+        </div>
+
+        <div className="settingsSection">
+          <div className="settingsTitle">
+            Account
+          </div>
+
+          <div className="settingsBody">
+            <div className="subtle">
+              Email
+            </div>
+
+            <div
+              style={{
+                fontWeight: 700
+              }}
+            >
+              {user.email}
+            </div>
+
+            <div className="subtle">
+              To change your password, use
+              "Forgot password" from the login
+              screen.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   SOCIAL APP
+========================================================= */
+
+function SocialApp({ user }) {
+  const [tab, setTab] =
+    useState("chats");
+
+  const [users, setUsers] =
+    useState([]);
+
+  const [me, setMe] =
+    useState(null);
+
+  const [openChat, setOpenChat] =
+    useState(null);
+
+  const callManager =
+    useCallManager(user);
+
+  usePresence(user);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubUsers = onSnapshot(
+      collection(db, "users"),
+      (snap) => {
+        const list = snap.docs.map(
+          (d) => ({
+            uid: d.id,
+            ...d.data()
+          })
+        );
+
+        setUsers(list);
+      }
+    );
+
+    const unsubMe = onSnapshot(
+      doc(db, "users", user.uid),
+      (snap) => {
+        if (snap.exists()) {
+          setMe({
+            uid: snap.id,
+            ...snap.data()
+          });
+        }
+      }
+    );
+
+    return () => {
+      unsubUsers();
+      unsubMe();
+    };
+  }, [user.uid]);
+
+  const currentUser = useMemo(() => {
+    return (
+      users.find(
+        (u) => u.uid === user.uid
+      ) ||
+      me ||
+      {
+        uid: user.uid,
+        email: user.email,
+        displayName:
+          user.displayName
+      }
+    );
+  }, [users, me, user]);
+
+  const friends = useMemo(() => {
+    const ids =
+      currentUser?.friends || [];
+
+    return users.filter((u) =>
+      ids.includes(u.uid)
+    );
+  }, [users, currentUser]);
+
+  function changeTab(next) {
+    setOpenChat(null);
+    setTab(next);
+  }
+
+  function swipeHandlers() {
+    let startX = 0;
+    let startY = 0;
+
+    return {
+      onTouchStart: (e) => {
+        const target = e.target;
+
+        if (
+          target.closest(
+            ".messages, .composer, input, textarea, button, video, audio"
+          )
+        ) {
+          return;
+        }
+
+        startX =
+          e.changedTouches[0].clientX;
+
+        startY =
+          e.changedTouches[0].clientY;
+      },
+
+      onTouchEnd: (e) => {
+        if (!startX) return;
+
+        const target = e.target;
+
+        if (
+          target.closest(
+            ".messages, .composer, input, textarea, button, video, audio"
+          )
+        ) {
+          startX = 0;
+          startY = 0;
+          return;
+        }
+
+        const endX =
+          e.changedTouches[0].clientX;
+
+        const endY =
+          e.changedTouches[0].clientY;
+
+        const dx = endX - startX;
+        const dy = endY - startY;
+
+        startX = 0;
+        startY = 0;
+
+        if (
+          Math.abs(dx) < 70 ||
+          Math.abs(dx) < Math.abs(dy)
+        ) {
+          return;
+        }
+
+        const index =
+          TABS.indexOf(tab);
+
+        if (dx < 0) {
+          const next =
+            TABS[
+              Math.min(
+                TABS.length - 1,
+                index + 1
+              )
+            ];
+
+          changeTab(next);
+        } else {
+          const next =
+            TABS[
+              Math.max(0, index - 1)
+            ];
+
+          changeTab(next);
+        }
+      }
+    };
+  }
+
+  const swipe = swipeHandlers();
+
+  return (
+    <div className="app">
+      <div className="topbar">
+        <div className="brand">
+          <div className="brandMark">
+            C
+          </div>
+          Chatdo
+        </div>
+
+        <div className="topActions">
+          <button
+            className="iconBtn"
+            title="Profile / Settings"
+            onClick={() =>
+              changeTab("settings")
+            }
+          >
+            ⚙
+          </button>
+
+          <button
+            className="iconBtn"
+            title="Logout"
+            onClick={() =>
+              signOut(auth)
+            }
+          >
+            ⇥
+          </button>
+        </div>
+      </div>
+
+      <div
+        className="mainWrap"
+        {...swipe}
+      >
+        <div className="nav">
+          <button
+            className={
+              tab === "chats"
+                ? "active"
+                : ""
+            }
+            onClick={() =>
+              changeTab("chats")
+            }
+          >
+            💬 Chats
+          </button>
+
+          <button
+            className={
+              tab === "stories"
+                ? "active"
+                : ""
+            }
+            onClick={() =>
+              changeTab("stories")
+            }
+          >
+            ◉ Stories
+          </button>
+
+          <button
+            className={
+              tab === "calls"
+                ? "active"
+                : ""
+            }
+            onClick={() =>
+              changeTab("calls")
+            }
+          >
+            ☎ Calls
+          </button>
+
+          <button
+            className={
+              tab === "people"
+                ? "active"
+                : ""
+            }
+            onClick={() =>
+              changeTab("people")
+            }
+          >
+            👥 People
+          </button>
+        </div>
+
+        {openChat ? (
+          <div className="page">
+            <Chat
+              user={user}
+              other={openChat.other}
+              chat={openChat.chat}
+              onBack={() =>
+                setOpenChat(null)
+              }
+              onStartCall={
+                callManager.startCall
+              }
+            />
+          </div>
+        ) : (
+          <>
+            {tab === "chats" && (
+              <Chats
+                user={user}
+                users={users}
+                onOpenChat={(other, chat) =>
+                  setOpenChat({
+                    other,
+                    chat
+                  })
+                }
+                onStartCall={
+                  callManager.startCall
+                }
+              />
+            )}
+
+            {tab === "stories" && (
+              <Stories
+                user={user}
+                users={users}
+              />
+            )}
+
+            {tab === "calls" && (
+              <CallsPage
+                user={user}
+                users={users}
+                onStartCall={
+                  callManager.startCall
+                }
+              />
+            )}
+
+            {tab === "people" && (
+              <People
+                user={user}
+                users={users}
+                me={currentUser}
+                onOpenChat={(other) =>
+                  setOpenChat({
+                    other,
+                    chat: {
+                      id: chatIdFor(
+                        user.uid,
+                        other.uid
+                      ),
+                      members: [
+                        user.uid,
+                        other.uid
+                      ]
+                    }
+                  })
+                }
+              />
+            )}
+
+            {tab === "settings" && (
+              <Settings
+                user={user}
+                me={currentUser}
+                onClose={() =>
+                  changeTab("chats")
+                }
+              />
+            )}
+          </>
+        )}
+      </div>
+
+      <CallUI manager={callManager} />
+    </div>
+  );
+}
+
+/* =========================================================
+   APP
+========================================================= */
+
+function App() {
+  const [user, setUser] =
+    useState(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  useEffect(() => {
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
+
+    const unsub =
+      onAuthStateChanged(
+        auth,
+        (currentUser) => {
+          setUser(currentUser);
+          setLoading(false);
+        }
+      );
+
+    return () => unsub();
+  }, []);
+
+  if (loading) {
+    return (
+      <>
+        <Styles />
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "grid",
+            placeItems: "center",
+            background: "#f8fafc",
+            color: "#64748b"
+          }}
+        >
+          Loading Chatdo...
+        </div>
+      </>
+    );
+  }
+
+  if (!user) {
+    return (
+      <>
+        <Styles />
+        <Auth />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Styles />
+      <SocialApp user={user} />
+    </>
+  );
+}
 
 /* =========================================================
    ROOT
@@ -3747,6 +4843,6 @@ const rootElement =
 
 createRoot(rootElement).render(
   <React.StrictMode>
-    <App/>
+    <App />
   </React.StrictMode>
 );
