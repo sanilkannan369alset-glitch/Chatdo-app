@@ -303,6 +303,7 @@ function Chat({user,other}){
 
   const [text,setText]=useState("");
   const [sending,setSending]=useState(false);
+  const [file,setFile]=useState(null);
   const [typing,setTyping]=useState(false);
   const [menuId,setMenuId]=useState(null);
   const [editingId,setEditingId]=useState(null);
@@ -715,6 +716,21 @@ function Chat({user,other}){
       setSending(false);
     }
       } 
+  async function sendTextOrImage(){
+  if(file){
+    const f=file;
+    setFile(null);
+    await sendImage({
+      target:{
+        files:[f],
+        value:""
+      }
+    });
+    return;
+  }
+
+  await sendText();
+  } 
     function startEdit(m){
     if(m.senderId!==user.uid||m.deletedForEveryone)return;
 
@@ -777,6 +793,59 @@ function Chat({user,other}){
       );
     }
   }
+  async function toggleLike(m){
+  try{
+    const liked=m.likes?.includes(user.uid);
+
+    await updateDoc(
+      doc(db,"chats",chatId,"messages",m.id),
+      {
+        likes:liked
+          ?arrayRemove(user.uid)
+          :arrayUnion(user.uid)
+      }
+    );
+  }catch(e){
+    console.error(e);
+  }
+}
+
+async function deleteForMe(m){
+  try{
+    await updateDoc(
+      doc(db,"chats",chatId,"messages",m.id),
+      {
+        deletedFor:arrayUnion(user.uid)
+      }
+    );
+
+    setMenuId(null);
+  }catch(e){
+    alert("Delete failed. Check Firestore Rules.");
+  }
+}
+
+async function deleteForEveryone(m){
+  if(m.senderId!==user.uid)return;
+
+  if(!window.confirm("Delete this message for everyone?"))return;
+
+  try{
+    await updateDoc(
+      doc(db,"chats",chatId,"messages",m.id),
+      {
+        deletedForEveryone:true,
+        text:"",
+        imageURL:"",
+        mediaURL:""
+      }
+    );
+
+    setMenuId(null);
+  }catch(e){
+    alert("Delete failed. Check Firestore Rules.");
+  }
+}
 
   function time(ts){
     try{
