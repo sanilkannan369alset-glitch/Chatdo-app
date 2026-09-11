@@ -191,6 +191,26 @@ function AvatarWithOnline({ user, small = false }) {
   );
 }
 
+function Icon({name, size=20, strokeWidth=1.9}) {
+  const paths = {
+    back:<><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></>,
+    profile:<><circle cx="12" cy="8" r="4"/><path d="M4 21c.8-4 3.5-6 8-6s7.2 2 8 6"/></>,
+    chat:<><path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 8.7 8.7 0 0 1-3.5-.7L4 20l1.3-3.8A7.5 7.5 0 1 1 20 11.5Z"/></>,
+    story:<><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.2"/></>,
+    call:<><path d="M6.6 3.5 9 3l2 4.7-2.2 1.7a14 14 0 0 0 5.8 5.8l1.7-2.2 4.7 2-.5 2.4a2.5 2.5 0 0 1-2.7 2C10.4 18.7 5.3 13.6 4.5 5.2a2.5 2.5 0 0 1 2.1-1.7Z"/></>,
+    video:<><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3Z"/></>,
+    gallery:<><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m4 17 5-5 3.5 3 2.5-2.5 6 6"/></>,
+    audio:<><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></>,
+    mic:<><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></>,
+    send:<><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></>,
+    edit:<><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></>,
+    trash:<><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></>,
+    plus:<><path d="M12 5v14M5 12h14"/></>,
+    settings:<><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a2 2 0 0 1-2.8 2.8l-.1-.1a2 2 0 0 0-3.4 1.4v.2a2 2 0 0 1-4 0v-.2a2 2 0 0 0-3.4-1.4l-.1.1A2 2 0 0 1 3 15.1l.1-.1a2 2 0 0 0-1.4-3.4h-.2a2 2 0 0 1 0-4h.2A2 2 0 0 0 3.1 4.2L3 4.1a2 2 0 0 1 2.8-2.8l.1.1a2 2 0 0 0 3.4-1.4v-.2a2 2 0 0 1 4 0V0a2 2 0 0 0 3.4 1.4l.1-.1A2 2 0 0 1 19.6 4l-.1.1a2 2 0 0 0 1.4 3.4h.2a2 2 0 0 1 0 4h-.2a2 2 0 0 0-1.5 3.5Z" transform="translate(0 2) scale(.82)"/></>,
+  };
+  return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">{paths[name]||paths.plus}</svg>;
+}
+
 /* =========================================================
    STYLES - WARM MINIMAL / COFFEE UI
 ========================================================= */
@@ -293,6 +313,26 @@ function Styles() {
     .callBox{padding:25px;text-align:center}.callAvatar{width:110px;height:110px;margin:20px auto}.callButtons{display:flex;justify-content:center;gap:10px;margin-top:20px}
     .notice{padding:12px 15px;background:#f7eadc;border-bottom:1px solid #eadbca;color:#6f5140;font-size:13px}
     .emojiBar{display:flex;gap:5px;flex-wrap:wrap}.emojiBar button{border:1px solid #eadbca;background:#fff;border-radius:9px;padding:6px}
+    .iconBtn,.sendBtn,.primary,.secondary,.danger,.nav button,.storyActions button,.contextMenu button{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+    .iconBtn svg,.sendBtn svg,.primary svg,.secondary svg,.danger svg,.nav button svg,.storyActions button svg,.contextMenu button svg{flex:0 0 auto}
+    .backTop{display:grid;place-items:center;width:34px;height:34px;border:1px solid #dfcfbd;background:#fffdf9;color:#5b3b2a;border-radius:10px}
+    .chatEmpty{padding:25px}
+    .reelsViewer{position:fixed;inset:0;background:#050505;z-index:1000;display:grid;place-items:center;touch-action:none}
+    .reelsStage{width:min(100vw,520px);height:100vh;position:relative;overflow:hidden;background:#111;display:grid;place-items:center}
+    .reelsStage .storyMedia,.reelsStage .storyTextOnly,.reelsStage .storyAudio{width:100%;height:100%;min-height:100%;border-radius:0;position:relative}
+    .storyFullMedia img,.storyFullMedia video{width:100%;height:100%;object-fit:contain;background:#000}
+    .storyFullText{width:100%;height:100%;display:grid;place-items:center;padding:45px 25px}
+    .storyFullText,.storyFullMedia,.storyFullMedia .storyOverlayText,.storyFullText span{position:absolute}
+    .reelsTop{position:fixed;top:0;left:50%;transform:translateX(-50%);width:min(100vw,520px);z-index:1002;padding:10px 12px;display:flex;gap:10px;align-items:center}
+    .reelsProgress{height:3px;flex:1;background:#ffffff55;border-radius:9px;overflow:hidden}.reelsProgress span{display:block;width:100%;height:100%;background:#fff;transform-origin:left}
+    .reelsClose{width:34px;height:34px;border:0;background:#0007;color:#fff;border-radius:50%;font-size:24px;line-height:1}
+    .reelsSide{position:fixed;top:50%;transform:translateY(-50%);z-index:1003;width:42px;height:70px;border:0;background:#0004;color:#fff;font-size:42px;line-height:1}
+    .reelsPrev{left:calc(50% - min(260px,50vw));}.reelsNext{right:calc(50% - min(260px,50vw))}
+    .storyAudio.storyFullMedia{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:35px;background:#1b1511;color:#fff}
+    .storyAudioIcon{width:78px;height:78px;border-radius:50%;display:grid;place-items:center;border:1px solid #ffffff55;margin-bottom:18px}
+    @media(max-width:700px){
+      .reelsSide{display:none}.reelsStage{width:100vw}.reelsTop{width:100vw}.composer .iconBtn{width:44px;height:44px}.nav button{min-width:76px}
+    }
     @media(max-width:700px){
       .mainWrap{padding:8px}.topbar{padding:0 10px}.brand{font-size:19px}.nav{top:70px}.page{border-radius:17px}.chatPage{height:calc(100vh - 140px);min-height:500px}.bubble{max-width:88%}.twoCol{grid-template-columns:1fr}.pageHead{padding:14px}.topActions .iconBtn{width:36px;height:36px}
     }
@@ -588,91 +628,113 @@ function Chats({ me, allUsers, openChat }) {
 ========================================================= */
 
 function Chat({ me, other, onBack }) {
-  const id = chatId(me.uid, other.uid);
-  const [messages,setMessages] = useState([]);
-  const [text,setText] = useState("");
-  const [reply,setReply] = useState(null);
-  const [editing,setEditing] = useState(null);
-  const [menu,setMenu] = useState(null);
-  const [recording,setRecording] = useState(false);
-  const [chatError,setChatError] = useState("");
-  const mediaRecorder = useRef(null);
-  const audioChunks = useRef([]);
-  const bottom = useRef(null);
+  const otherUid = other?.uid || "";
+  const id = otherUid ? chatId(me.uid, otherUid) : "";
+  const [messages,setMessages]=useState([]);
+  const [text,setText]=useState("");
+  const [reply,setReply]=useState(null);
+  const [editing,setEditing]=useState(null);
+  const [menu,setMenu]=useState(null);
+  const [chatError,setChatError]=useState("");
+  const bottom=useRef(null);
 
-  useEffect(() => {
-    let active = true;
+  useEffect(()=>{
+    if(!id || !me?.uid || !otherUid) return;
+    let alive=true;
     setChatError("");
-    setDoc(doc(db,"chats",id),{members:[me.uid,other.uid].sort(),updatedAt:serverTimestamp()},{merge:true}).catch(()=>{});
-    const messagesRef = collection(db,"chats",id,"messages");
-    const unsub = onSnapshot(messagesRef, snap => {
-      if(!active) return;
-      const list=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>ts(a.createdAt)-ts(b.createdAt));
-      setMessages(list);
-      list.filter(m=>m.senderId!==me.uid).forEach(m=>updateDoc(doc(db,"chats",id,"messages",m.id),{deliveredTo:arrayUnion(me.uid),seenBy:arrayUnion(me.uid)}).catch(()=>{}));
-    }, error => {
-      if(active) setChatError(error?.message || "Could not load this chat.");
-    });
-    return ()=>{active=false;unsub();};
-  },[id,me.uid,other.uid]);
+    const chatRef=doc(db,"chats",id);
+    setDoc(chatRef,{members:[me.uid,otherUid].sort(),updatedAt:serverTimestamp()},{merge:true})
+      .catch(e=>alive&&setChatError(e?.message||"Could not create this chat."));
+    const messagesRef=collection(db,"chats",id,"messages");
+    const unsubscribe=onSnapshot(messagesRef,
+      snap=>{
+        if(!alive)return;
+        const list=[];
+        snap.forEach(d=>list.push({id:d.id,...d.data()}));
+        list.sort((a,b)=>ts(a.createdAt)-ts(b.createdAt));
+        setMessages(list);
+      },
+      e=>alive&&setChatError(e?.message||"Could not load messages.")
+    );
+    return()=>{alive=false;unsubscribe();};
+  },[id,me?.uid,otherUid]);
 
-  useEffect(()=>bottom.current?.scrollIntoView({behavior:"smooth"}),[messages.length]);
+  useEffect(()=>{bottom.current?.scrollIntoView({behavior:"smooth"})},[messages.length]);
 
-  const send = async () => {
+  const send=async()=>{
     const value=text.trim();
-    if(!value)return;
-    if(value.length>240) return alert("A message can contain up to 240 characters before friendship.");
+    if(!value || !id || !otherUid)return;
+    setChatError("");
     try{
-      const friendship = await getDoc(doc(db,"friendships", [me.uid,other.uid].sort().join("_")));
-      const friends = friendship.exists();
-      const sentCount = messages.filter(m=>m.senderId===me.uid && ts(m.createdAt)>Date.now()-24*60*60*1000).length;
-      if(!friends && sentCount>=5 && !editing) return alert("Before becoming friends, you can send only 5 introductory messages.");
       if(editing){
         await updateDoc(doc(db,"chats",id,"messages",editing.id),{text:value,edited:true});
         setEditing(null);
       }else{
-        const data={senderId:me.uid,receiverId:other.uid,text:value,type:"text",createdAt:serverTimestamp(),deliveredTo:[me.uid],seenBy:[me.uid]};
+        const data={senderId:me.uid,receiverId:otherUid,text:value,type:"text",createdAt:serverTimestamp(),deliveredTo:[me.uid],seenBy:[me.uid]};
         if(reply) data.replyTo={id:reply.id,text:reply.text||"Message"};
         await addDoc(collection(db,"chats",id,"messages"),data);
       }
-      await setDoc(doc(db,"chats",id),{members:[me.uid,other.uid].sort(),lastMessage:value,updatedAt:serverTimestamp(),lastSenderId:me.uid},{merge:true});
+      await setDoc(doc(db,"chats",id),{members:[me.uid,otherUid].sort(),lastMessage:value,updatedAt:serverTimestamp(),lastSenderId:me.uid},{merge:true});
       setText("");setReply(null);
-    }catch(e){alert(e?.message||"Could not send message.");}
+    }catch(e){setChatError(e?.message||"Message could not be sent. Please check Firestore rules.");}
   };
 
-  const react = async (m,e) => { try { const current=m.reactions?.[e]||[]; await updateDoc(doc(db,"chats",id,"messages",m.id),{[`reactions.${e}`]:current.includes(me.uid)?current.filter(x=>x!==me.uid):[...current,me.uid]}); } catch(e2){alert(e2?.message||"Could not react.");} };
-  const editMessage = m => { if(m.senderId!==me.uid)return; setEditing(m); setText(m.text||""); setReply(null); setMenu(null); };
-  const delForMe = async m => { try{await updateDoc(doc(db,"chats",id,"messages",m.id),{deletedFor:arrayUnion(me.uid)});}catch(e){alert(e?.message||"Could not delete message.");} setMenu(null); };
-  const delEveryone = async m => { try{await updateDoc(doc(db,"chats",id,"messages",m.id),{text:"This message was deleted",deletedForEveryone:true});}catch(e){alert(e?.message||"Could not delete message.");} setMenu(null); };
-
-  const sendMedia = async file => {
-    if(!file)return;
+  const react=async(m,e)=>{
     try{
-      const url=await uploadFile(me.uid,file,"chat-media");
-      const type=file.type.startsWith("video")?"video":"image";
-      await addDoc(collection(db,"chats",id,"messages"),{senderId:me.uid,receiverId:other.uid,type,url,createdAt:serverTimestamp(),deliveredTo:[me.uid],seenBy:[me.uid]});
-      await setDoc(doc(db,"chats",id),{members:[me.uid,other.uid].sort(),lastMessage:type==="image"?"📷 Photo":"🎥 Video",updatedAt:serverTimestamp(),lastSenderId:me.uid},{merge:true});
-    }catch(e){}
+      const current=Array.isArray(m.reactions?.[e])?m.reactions[e]:[];
+      const next=current.includes(me.uid)?current.filter(x=>x!==me.uid):[...current,me.uid];
+      await updateDoc(doc(db,"chats",id,"messages",m.id),{[`reactions.${e}`]:next});
+    }catch(e2){setChatError(e2?.message||"Could not add reaction.");}
+    setMenu(null);
   };
+  const editMessage=m=>{if(m.senderId!==me.uid)return;setEditing(m);setText(m.text||"");setReply(null);setMenu(null);};
+  const delForMe=async m=>{try{await updateDoc(doc(db,"chats",id,"messages",m.id),{deletedFor:arrayUnion(me.uid)})}catch(e){setChatError(e?.message||"Could not delete message.")}setMenu(null)};
+  const delEveryone=async m=>{try{await updateDoc(doc(db,"chats",id,"messages",m.id),{text:"This message was deleted",deletedForEveryone:true})}catch(e){setChatError(e?.message||"Could not delete message.")}setMenu(null)};
 
-  const startRecording = async()=>{
-    if(recording){mediaRecorder.current?.stop();return;}
-    try{
-      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-      const r=new MediaRecorder(stream);audioChunks.current=[];
-      r.ondataavailable=e=>e.data.size&&audioChunks.current.push(e.data);
-      r.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());try{const b=new Blob(audioChunks.current,{type:"audio/webm"});const u=await uploadFile(me.uid,new File([b],"voice.webm",{type:"audio/webm"}),"chat-media");await addDoc(collection(db,"chats",id,"messages"),{senderId:me.uid,receiverId:other.uid,type:"audio",audioURL:u,createdAt:serverTimestamp(),deliveredTo:[me.uid],seenBy:[me.uid]});await setDoc(doc(db,"chats",id),{members:[me.uid,other.uid].sort(),lastMessage:"🎤 Voice message",updatedAt:serverTimestamp(),lastSenderId:me.uid},{merge:true});}catch(e){}setRecording(false);};
-      mediaRecorder.current=r;r.start();setRecording(true);
-    }catch{alert("Microphone permission is required.");}
-  };
+  if(!otherUid) return <div className="page chatPage"><div className="chatHeader"><button className="iconBtn" onClick={onBack}><Icon name="back"/></button><b>Chat</b></div><div className="empty">This user could not be opened. Go back and select the person again.</div></div>;
 
   return <div className="page chatPage" onClick={()=>menu&&setMenu(null)}>
-    <div className="chatHeader"><button className="backTop" onClick={onBack}>←</button><AvatarWithOnline user={other}/><div className="chatHeaderInfo"><div className="chatHeaderName">{nameOf(other)}</div><div className={`chatHeaderStatus ${other.online?"":"offlineText"}`}>{other.online?"Online":`Last seen ${dateText(other.lastSeen)}`}</div></div><button className="iconBtn" onClick={()=>alert("Start audio call from Calls tab.")}>☎</button><button className="iconBtn" onClick={()=>alert("Start video call from Calls tab.")}>▣</button></div>
-    {chatError?<div className="chatError">{chatError}<br/><button className="secondary" style={{marginTop:8}} onClick={()=>location.reload()}>Reload chat</button></div>:<div className="messages">{messages.filter(m=>!(m.deletedFor||[]).includes(me.uid)).map(m=>{const mine=m.senderId===me.uid;return <div className={`messageLine ${mine?"mine":""}`} key={m.id}><div className="bubble" onContextMenu={e=>{e.preventDefault();setMenu({m,x:e.clientX,y:e.clientY})}}>{m.replyTo&&<div className="replyBox">↪ {m.replyTo.text}</div>}{m.type==="image"&&<img src={m.url} alt="" style={{maxWidth:"100%",borderRadius:12}}/>}{m.type==="video"&&<video src={m.url} controls style={{maxWidth:"100%",borderRadius:12}}/>}{m.type==="audio"&&<audio src={m.audioURL} controls/>}{m.type==="text"&&<div className="bubbleText">{m.text}</div>}{m.reactions&&<div style={{marginTop:5}}>{Object.entries(m.reactions).filter(([,v])=>v?.length).map(([e,v])=><span key={e} style={{marginRight:4}}>{e} {v.length}</span>)}</div>}<div className="bubbleMeta">{m.edited?"edited ":""}{timeText(m.createdAt)} {mine&&<span className={`tick ${statusFor(m,me.uid)}`}>{statusFor(m,me.uid)==="sent"?"✓":"✓✓"}</span>}</div></div></div>})}<div ref={bottom}/></div>}
+    <div className="chatHeader">
+      <button className="iconBtn" aria-label="Back" onClick={onBack}><Icon name="back"/></button>
+      <AvatarWithOnline user={other}/>
+      <div className="chatHeaderInfo"><div className="chatHeaderName">{nameOf(other)}</div><div className={`chatHeaderStatus ${other?.online?"":"offlineText"}`}>{other?.online?"Online":`Last seen ${dateText(other?.lastSeen)}`}</div></div>
+      <button className="iconBtn" aria-label="Audio call"><Icon name="call"/></button>
+      <button className="iconBtn" aria-label="Video call"><Icon name="video"/></button>
+    </div>
+    {chatError&&<div className="chatError"><b>Chat error</b><div>{chatError}</div></div>}
+    <div className="messages">
+      {messages.filter(m=>!(m.deletedFor||[]).includes(me.uid)).map(m=>{
+        const mine=m.senderId===me.uid;
+        return <div className={`messageLine ${mine?"mine":""}`} key={m.id}>
+          <div className="bubble" onContextMenu={e=>{e.preventDefault();setMenu({m,x:e.clientX,y:e.clientY})}}>
+            {m.replyTo&&<div className="replyBox">↪ {m.replyTo.text}</div>}
+            {m.type==="image"&&<img src={m.url} alt="" style={{maxWidth:"100%",borderRadius:12}}/>}
+            {m.type==="video"&&<video src={m.url} controls style={{maxWidth:"100%",borderRadius:12}}/>}
+            {m.type==="audio"&&<audio src={m.audioURL||m.url} controls/>}
+            {m.type==="text"&&<div className="bubbleText">{m.text}</div>}
+            {m.deletedForEveryone&&<div className="bubbleText" style={{fontStyle:"italic",opacity:.7}}>{m.text}</div>}
+            {m.reactions&&<div style={{marginTop:5}}>{Object.entries(m.reactions).filter(([,v])=>Array.isArray(v)&&v.length).map(([e,v])=><span key={e} style={{marginRight:4}}>{e} {v.length}</span>)}</div>}
+            <div className="bubbleMeta">{m.edited?"edited ":""}{timeText(m.createdAt)} {mine&&<span className={`tick ${statusFor(m,me.uid)}`}>{statusFor(m,me.uid)==="sent"?"✓":"✓✓"}</span>}</div>
+          </div>
+        </div>;
+      })}
+      {messages.length===0&&!chatError&&<div className="empty chatEmpty">No messages yet. Say hello.</div>}
+      <div ref={bottom}/>
+    </div>
     {reply&&<div className="replyComposer">↩ Replying to: {reply.text||"Message"}<button className="linkBtn" onClick={()=>setReply(null)}>×</button></div>}
-    {editing&&<div className="replyComposer">Editing message <button className="linkBtn" onClick={()=>{setEditing(null);setText("")}}>Cancel</button></div>}
-    <div className="composer"><label className="iconBtn" title="Attach photo or video">＋<input hidden type="file" accept="image/*,video/*" onChange={e=>sendMedia(e.target.files?.[0])}/></label><button className={`iconBtn ${recording?"danger":""}`} onClick={startRecording}>{recording?"■":"🎤"}</button><textarea maxLength={240} value={text} onChange={e=>setText(e.target.value)} placeholder="Message..." onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}}}/><button className="sendBtn" onClick={send}>➤</button></div>
-    {menu&&<div className="contextMenu" style={{left:Math.min(menu.x,window.innerWidth-220),top:Math.min(menu.y,window.innerHeight-330)}} onClick={e=>e.stopPropagation()}><button onClick={()=>{setReply(menu.m);setMenu(null)}}>↩ Reply</button><div className="emojiBar" style={{padding:8}}>{["❤️","👍","😂","😮","😢","🔥"].map(e=><button key={e} onClick={()=>{react(menu.m,e);setMenu(null)}}>{e}</button>)}</div>{menu.m.senderId===me.uid&&<button onClick={()=>editMessage(menu.m)}>✏ Edit</button>}<button onClick={()=>delForMe(menu.m)}>Delete for me</button>{menu.m.senderId===me.uid&&<button className="dangerItem" onClick={()=>delEveryone(menu.m)}>Delete for everyone</button>}</div>}
+    {editing&&<div className="replyComposer"><span>Editing message</span><button className="linkBtn" onClick={()=>{setEditing(null);setText("")}}>Cancel</button></div>}
+    <div className="composer">
+      <label className="iconBtn" title="Gallery" aria-label="Gallery"><Icon name="gallery"/><input hidden type="file" accept="image/*,video/*" onChange={async e=>{const f=e.target.files?.[0];if(!f)return;try{const url=await uploadFile(me.uid,f,"chat-media");const type=f.type.startsWith("video")?"video":"image";await addDoc(collection(db,"chats",id,"messages"),{senderId:me.uid,receiverId:otherUid,type,url,createdAt:serverTimestamp(),deliveredTo:[me.uid],seenBy:[me.uid]});await setDoc(doc(db,"chats",id),{members:[me.uid,otherUid].sort(),lastMessage:type==="image"?"Photo":"Video",updatedAt:serverTimestamp(),lastSenderId:me.uid},{merge:true});}catch(e2){setChatError(e2?.message||"Media could not be sent.")}e.target.value=""}}/></label>
+      <textarea maxLength={240} value={text} onChange={e=>setText(e.target.value)} placeholder="Message..." onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}}}/>
+      <button className="sendBtn" aria-label="Send" onClick={send}><Icon name="send" size={19}/></button>
+    </div>
+    {menu&&<div className="contextMenu" style={{left:Math.min(menu.x,window.innerWidth-220),top:Math.min(menu.y,window.innerHeight-330)}} onClick={e=>e.stopPropagation()}>
+      <button onClick={()=>{setReply(menu.m);setMenu(null)}}>↩ Reply</button>
+      <div className="emojiBar" style={{padding:8}}>{["❤️","👍","😂","😮","😢","🔥"].map(e=><button key={e} onClick={()=>react(menu.m,e)}>{e}</button>)}</div>
+      {menu.m.senderId===me.uid&&<button onClick={()=>editMessage(menu.m)}><Icon name="edit" size={17}/> Edit</button>}
+      <button onClick={()=>delForMe(menu.m)}><Icon name="trash" size={17}/> Delete for me</button>
+      {menu.m.senderId===me.uid&&<button className="dangerItem" onClick={()=>delEveryone(menu.m)}><Icon name="trash" size={17}/> Delete for everyone</button>}
+    </div>}
   </div>;
 }
 
@@ -682,11 +744,17 @@ function Chat({ me, other, onBack }) {
 
 function Stories({ me, allUsers, openProfile }) {
   const [stories,setStories]=useState([]),[viewer,setViewer]=useState(null),[editor,setEditor]=useState(false),[file,setFile]=useState(null),[fileUrl,setFileUrl]=useState(""),[text,setText]=useState(""),[textColor,setTextColor]=useState("#ffffff"),[textSize,setTextSize]=useState(28),[stickers,setStickers]=useState([]),[sticker,setSticker]=useState("😊"),[stickerSize,setStickerSize]=useState(55),[busy,setBusy]=useState(false);
-  useEffect(()=>{const q=query(collection(db,"stories"));return onSnapshot(q,snap=>{const cutoff=Date.now()-86400000;setStories(snap.docs.map(d=>({id:d.id,...d.data()})).filter(s=>ts(s.createdAt)>=cutoff&&(!s.expiresAt||ts(s.expiresAt)>Date.now())).sort((a,b)=>ts(b.createdAt)-ts(a.createdAt)));},()=>{});},[]);
+  useEffect(()=>{const q=query(collection(db,"stories"));return onSnapshot(q,snap=>{const cutoff=Date.now()-86400000;setStories(snap.docs.map(d=>({id:d.id,...d.data()})).filter(s=>ts(s.createdAt)>=cutoff&&(!s.expiresAt||ts(s.expiresAt)>Date.now())).sort((a,b)=>ts(b.createdAt)-ts(a.createdAt)));},()=>{})},[]);
   useEffect(()=>{if(!file){setFileUrl("");return}const u=URL.createObjectURL(file);setFileUrl(u);return()=>URL.revokeObjectURL(u)},[file]);
   const mine=stories.filter(s=>s.uid===me.uid),others=stories.filter(s=>s.uid!==me.uid),userMap=Object.fromEntries(allUsers.map(x=>[x.uid,x])),ordered=[...others].sort((a,b)=>ts(b.createdAt)-ts(a.createdAt));
-  const addSticker=()=>setStickers(v=>[...v,{id:(crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())),emoji:sticker,size:stickerSize,x:50,y:72}]);
+  const activeStories=[...mine,...ordered];
+  const viewerIndex=viewer?Math.max(0,activeStories.findIndex(s=>s.id===viewer.id)):0;
+  const addSticker=()=>setStickers(v=>[...v,{id:typeof crypto!=="undefined"&&crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random()),emoji:sticker,size:stickerSize,x:50,y:72}]);
   const removeSticker=id=>setStickers(v=>v.filter(x=>x.id!==id));
+  const closeViewer=()=>setViewer(null);
+  const nextStory=()=>{if(!activeStories.length)return;const i=viewerIndex+1;if(i<activeStories.length)setViewer(activeStories[i]);else closeViewer()};
+  const prevStory=()=>{if(!activeStories.length)return;const i=Math.max(0,viewerIndex-1);setViewer(activeStories[i]);};
+  useEffect(()=>{if(!viewer)return;const s=viewer;if(s.type==="video"||s.type==="audio")return;const t=setTimeout(nextStory,5000);return()=>clearTimeout(t)},[viewer?.id,viewerIndex,activeStories.length]);
   const post=async()=>{
     if(!file&&!text.trim())return alert("Add text or choose an image, video or audio file.");
     if(file?.type.startsWith("video")){
@@ -699,15 +767,16 @@ function Stories({ me, allUsers, openProfile }) {
       if(file){url=await uploadFile(me.uid,file,"stories");type=file.type.startsWith("video")?"video":file.type.startsWith("audio")?"audio":"image";}
       await addDoc(collection(db,"stories"),{uid:me.uid,url,type,text:text.trim(),textColor,textSize,stickerItems:stickers,createdAt:serverTimestamp(),expiresAt:new Date(Date.now()+86400000)});
       setEditor(false);setFile(null);setText("");setStickers([]);
-    }catch(e){}finally{setBusy(false)}
+    }catch(e){alert(e?.message||"Could not post story.")}finally{setBusy(false)}
   };
-  const visual=(s,h="220px")=>s.type==="text"?<div className="storyTextOnly" style={{color:s.textColor||"#fff",fontSize:s.textSize||28,background:"linear-gradient(135deg,#70462f,#b98d6d)"}}>{s.text||""}</div>:s.type==="audio"?<div className="storyAudio"><div style={{fontWeight:900,marginBottom:12}}>🎵 Audio story</div><audio src={s.url} controls style={{width:"100%"}}/></div>:<div className="storyMedia" style={{height:h}}>{s.type==="video"?<video src={s.url} controls autoPlay={h!=="220px"}/>:<img src={s.url} alt=""/>}{s.text&&<div className="storyOverlayText" style={{color:s.textColor,fontSize:s.textSize}}>{s.text}</div>}{(s.stickerItems||[]).map(x=><div key={x.id} style={{position:"absolute",left:`${x.x||50}%`,top:`${x.y||72}%`,fontSize:x.size||55,transform:"translate(-50%,-50%)"}}>{x.emoji}</div>)}</div>;
+  const visual=(s,full=false)=>s.type==="text"?<div className={`storyTextOnly ${full?"storyFullText":""}`} style={{color:s.textColor||"#fff",fontSize:s.textSize||28,background:"linear-gradient(135deg,#70462f,#b98d6d)"}}>{s.text||""}{(s.stickerItems||[]).map(x=><span key={x.id} style={{position:"absolute",left:`${x.x||50}%`,top:`${x.y||72}%`,fontSize:x.size||55,transform:"translate(-50%,-50%)"}}>{x.emoji}</span>)}</div>:s.type==="audio"?<div className={`storyAudio ${full?"storyFullMedia":""}`}><div className="storyAudioIcon"><Icon name="audio" size={34}/></div><div style={{fontWeight:900,marginBottom:12}}>Audio story</div><audio src={s.url} controls style={{width:"100%"}}/>{s.text&&<div className="storyOverlayText">{s.text}</div>}</div>:<div className={`storyMedia ${full?"storyFullMedia":""}`}>{s.type==="video"?<video src={s.url} controls autoPlay={full} playsInline onEnded={full?nextStory:undefined}/>:<img src={s.url} alt=""/>}{s.text&&<div className="storyOverlayText" style={{color:s.textColor,fontSize:s.textSize}}>{s.text}</div>}{(s.stickerItems||[]).map(x=><div key={x.id} style={{position:"absolute",left:`${x.x||50}%`,top:`${x.y||72}%`,fontSize:x.size||55,transform:"translate(-50%,-50%)"}}>{x.emoji}</div>)}</div>;
   const preview=file?{type:file.type.startsWith("video")?"video":file.type.startsWith("audio")?"audio":"image",url:fileUrl,text,textColor,textSize,stickerItems:stickers}:!text.trim()?null:{type:"text",text,textColor,textSize,stickerItems:stickers};
-  return <div className="page"><div className="pageHead"><div><div className="pageTitle">Stories</div><div className="subtle">24-hour stories • text, image, video or audio</div></div><button className="primary" onClick={()=>setEditor(true)}>＋ My Story</button></div>
-    <div className="storiesStrip"><div className="storyItem" onClick={()=>mine[0]&&setViewer(mine[0])}><div className="storyCircle">{mine[0]?.url?<img src={mine[0].url} alt=""/>:avatar(me)}<span className="storyAdd">＋</span></div><div>My Story</div></div>{ordered.map(s=>{const u=userMap[s.uid]||{uid:s.uid};return <div className="storyItem" key={s.id} onClick={()=>setViewer(s)}><div className="storyCircle">{s.url?<img src={s.url} alt=""/>:avatar(u)}</div><div>{nameOf(u)}</div></div>})}</div>
-    <div className="storyGrid">{[...mine,...ordered].map(s=>{const u=s.uid===me.uid?me:(userMap[s.uid]||{uid:s.uid});return <div className="storyCard" key={s.id}><div onClick={()=>setViewer(s)}>{visual(s)}</div><div className="storyInfo"><b>{nameOf(u)}</b><div className="subtle">{dateText(s.createdAt)}</div><div className="storyActions"><button className="secondary" onClick={()=>openProfile(u)}>Profile</button>{s.uid===me.uid&&<button className="danger" onClick={()=>deleteDoc(doc(db,"stories",s.id))}>Delete</button>}</div></div></div>})}</div>
-    {editor&&<div className="modalBack"><div className="modal"><div className="modalHead"><div className="modalTitle">Create story</div><button className="iconBtn" onClick={()=>{setEditor(false);setFile(null);setStickers([])}}>×</button></div><div className="formGrid"><div className="subtle">Choose one media type, or post text only.</div><div className="mediaChoice"><label title="Gallery image">🖼️<input type="file" accept="image/*" onChange={e=>setFile(e.target.files?.[0]||null)}/></label><label title="Video">🎞️<input type="file" accept="video/*" onChange={e=>setFile(e.target.files?.[0]||null)}/></label><label title="Audio">🎵<input type="file" accept="audio/*" onChange={e=>setFile(e.target.files?.[0]||null)}/></label>{file&&<button className="secondary" onClick={()=>setFile(null)}>Clear</button>}</div>{preview&&visual(preview,"220px")}<textarea placeholder="Write story text (optional)" value={text} onChange={e=>setText(e.target.value)}/><div className="twoCol"><label className="fieldLabel">Text colour<input type="color" value={textColor} onChange={e=>setTextColor(e.target.value)}/></label><label className="fieldLabel">Text size<input type="range" min="16" max="72" value={textSize} onChange={e=>setTextSize(Number(e.target.value))}/></label></div><div className="emojiBar">{["😊","😂","❤️","🔥","😍","😎","👍","🎉","⭐"].map(e=><button className={sticker===e?"stickerChoice active":"stickerChoice"} key={e} onClick={()=>setSticker(e)}>{e}</button>)}<button className="primary" onClick={addSticker}>＋ Add sticker</button></div>{stickers.length>0&&<div className="emojiBar">{stickers.map(x=><button key={x.id} className="secondary" onClick={()=>removeSticker(x.id)}>{x.emoji} ×</button>)}</div>}<label className="fieldLabel">Sticker size<input type="range" min="25" max="110" value={stickerSize} onChange={e=>setStickerSize(Number(e.target.value))}/></label><div className="notice">Image, video and audio stories need Firebase Storage. Text-only stories work without media storage.</div><button className="primary" onClick={post} disabled={busy}>{busy?"Posting...":"Post story"}</button></div></div></div>}
-    {viewer&&<div className="modalBack" onClick={()=>setViewer(null)}><div className="modal" onClick={e=>e.stopPropagation()}><div className="modalHead"><div className="modalTitle">Story</div><button className="iconBtn" onClick={()=>setViewer(null)}>×</button></div>{visual(viewer,"65vh")}</div></div>}
+  return <div className="page">
+    <div className="pageHead"><div><div className="pageTitle">Stories</div><div className="subtle">24-hour stories</div></div><button className="primary" onClick={()=>setEditor(true)}><Icon name="plus" size={17}/> My Story</button></div>
+    <div className="storiesStrip"><div className="storyItem" onClick={()=>mine[0]&&setViewer(mine[0])}><div className="storyCircle">{mine[0]?.url?<img src={mine[0].url} alt=""/>:avatar(me)}<span className="storyAdd"><Icon name="plus" size={13}/></span></div><div>My Story</div></div>{ordered.map(s=>{const u=userMap[s.uid]||{uid:s.uid};return <div className="storyItem" key={s.id} onClick={()=>setViewer(s)}><div className="storyCircle">{s.url?<img src={s.url} alt=""/>:avatar(u)}</div><div>{nameOf(u)}</div></div>})}</div>
+    <div className="storyGrid">{activeStories.map(s=>{const u=s.uid===me.uid?me:(userMap[s.uid]||{uid:s.uid});return <div className="storyCard" key={s.id}><div onClick={()=>setViewer(s)}>{visual(s)}</div><div className="storyInfo"><b>{nameOf(u)}</b><div className="subtle">{dateText(s.createdAt)}</div><div className="storyActions"><button className="secondary" onClick={()=>openProfile(u)}>Profile</button>{s.uid===me.uid&&<button className="danger" onClick={()=>deleteDoc(doc(db,"stories",s.id))}><Icon name="trash" size={16}/> Delete</button>}</div></div></div>})}</div>
+    {editor&&<div className="modalBack"><div className="modal"><div className="modalHead"><div className="modalTitle">Create story</div><button className="iconBtn" onClick={()=>{setEditor(false);setFile(null);setStickers([])}}>×</button></div><div className="formGrid"><div className="subtle">Text only, image, video or audio.</div><div className="mediaChoice"><label title="Gallery image"><Icon name="gallery"/><input type="file" accept="image/*" onChange={e=>setFile(e.target.files?.[0]||null)}/></label><label title="Video"><Icon name="video"/><input type="file" accept="video/*" onChange={e=>setFile(e.target.files?.[0]||null)}/></label><label title="Audio"><Icon name="audio"/><input type="file" accept="audio/*" onChange={e=>setFile(e.target.files?.[0]||null)}/></label>{file&&<button className="secondary" onClick={()=>setFile(null)}>Clear</button>}</div>{preview&&visual(preview)}<textarea placeholder="Write story text (optional)" value={text} onChange={e=>setText(e.target.value)}/><div className="twoCol"><label className="fieldLabel">Text colour<input type="color" value={textColor} onChange={e=>setTextColor(e.target.value)}/></label><label className="fieldLabel">Text size<input type="range" min="16" max="72" value={textSize} onChange={e=>setTextSize(Number(e.target.value))}/></label></div><div className="emojiBar">{["😊","😂","❤️","🔥","😍","😎","👍","🎉","⭐"].map(e=><button className={sticker===e?"stickerChoice active":"stickerChoice"} key={e} onClick={()=>setSticker(e)}>{e}</button>)}<button className="primary" onClick={addSticker}><Icon name="plus" size={16}/> Add sticker</button></div>{stickers.length>0&&<div className="emojiBar">{stickers.map(x=><button key={x.id} className="secondary" onClick={()=>removeSticker(x.id)}>{x.emoji} ×</button>)}</div>}<label className="fieldLabel">Sticker size<input type="range" min="25" max="110" value={stickerSize} onChange={e=>setStickerSize(Number(e.target.value))}/></label><button className="primary" onClick={post} disabled={busy}>{busy?"Posting...":"Post story"}</button></div></div></div>}
+    {viewer&&<div className="reelsViewer" onClick={e=>{if(e.target===e.currentTarget)closeViewer()}}><div className="reelsTop"><div className="reelsProgress"><span/></div><button className="reelsClose" onClick={closeViewer}>×</button></div><button className="reelsSide reelsPrev" onClick={prevStory}>‹</button><div className="reelsStage" onClick={e=>{const r=e.currentTarget.getBoundingClientRect();if(e.clientX>r.left+r.width*.58)nextStory();else if(e.clientX<r.left+r.width*.42)prevStory();}}>{visual(viewer,true)}</div><button className="reelsSide reelsNext" onClick={nextStory}>›</button></div>}
   </div>;
 }
 
@@ -790,14 +859,14 @@ function App() {
   const me=useUserDoc(fbUser?.uid),allUsers=useAllUsers(fbUser?.uid);
   const goTab=next=>{setChatUser(null);setTab(next);window.history.pushState({chatdo:true,tab:next},"");};
   const openChat=u=>{setChatUser(u);setTab("chats");window.history.pushState({chatdo:true,tab:"chats",chat:u.uid},"");};
-  const back=()=>{if(chatUser){setChatUser(null);window.history.back();return;}window.history.back();};
+  const back=()=>{if(chatUser){setChatUser(null);setTab("chats");return;}if(window.history.length>1)window.history.back();};
   useEffect(()=>{const onPop=()=>{setChatUser(null);const st=window.history.state;if(st?.chatdo&&(TABS.includes(st.tab)||st.tab==="settings"))setTab(st.tab);else setTab("chats")};window.addEventListener("popstate",onPop);if(!window.history.state?.chatdo)window.history.replaceState({chatdo:true,tab:"chats"},"");return()=>window.removeEventListener("popstate",onPop)},[chatUser]);
   const onTouchStart=e=>{touchStart.current={x:e.touches[0].clientX,y:e.touches[0].clientY};};
   const onTouchEnd=e=>{if(!touchStart.current)return;const dx=e.changedTouches[0].clientX-touchStart.current.x,dy=e.changedTouches[0].clientY-touchStart.current.y;touchStart.current=null;if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy))return;const idx=TABS.indexOf(tab);if(idx<0)return;const next=dx<0?TABS[Math.min(TABS.length-1,idx+1)]:TABS[Math.max(0,idx-1)];if(next!==tab)goTab(next);};
   if(loading)return <><Styles/><div className="authPage"><div className="authCard" style={{textAlign:"center"}}>Loading Chatdo...</div></div></>;
   if(!fbUser)return <Auth/>;
   if(!me)return <><Styles/><div className="authPage"><div className="authCard" style={{textAlign:"center"}}>Preparing your profile...</div></div></>;
-  return <div className="app" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}><Styles/><div className="topbar"><div className="brand"><button className="backTop" onClick={back} title="Back">←</button><div className="brandMark">C</div><span onClick={()=>setLegal(true)}>Chatdo</span></div><div className="topActions"><button className="iconBtn" onClick={()=>setProfileUser(me)}>👤</button></div></div><div className="mainWrap"><div className="nav">{TABS.map(t=><button key={t} className={tab===t?"active":""} onClick={()=>goTab(t)}>{t==="chats"?"💬 Chat":t==="stories"?"⭕ Story":t==="calls"?"☎ Call":"👥 People"}</button>)}<button onClick={()=>goTab("settings")}>⚙ Settings</button></div>{chatUser?<Chat me={me} other={allUsers.find(u=>u.uid===chatUser.uid)||chatUser} onBack={()=>{setChatUser(null);window.history.back()}}/>:tab==="chats"?<Chats me={me} allUsers={allUsers} openChat={openChat}/>:tab==="stories"?<Stories me={me} allUsers={allUsers} openProfile={u=>setProfileUser(u)}/>:tab==="calls"?<Calls me={me} allUsers={allUsers} openProfile={u=>setProfileUser(u)}/>:tab==="people"?<People me={me} allUsers={allUsers} openChat={openChat} openProfile={u=>setProfileUser(u)}/>:<Settings me={me}/>}</div>{profileUser&&<ProfileModal me={me} user={profileUser} onClose={()=>setProfileUser(null)} openChat={u=>{setProfileUser(null);openChat(u)}}/>}{legal&&<div onClick={()=>setLegal(false)}><Legal/></div>}</div>;
+  return <div className="app" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}><Styles/><div className="topbar"><div className="brand"><button className="backTop" onClick={back} title="Back" aria-label="Back"><Icon name="back" size={18}/></button><div className="brandMark">C</div><span onClick={()=>setLegal(true)}>Chatdo</span></div><div className="topActions"><button className="iconBtn" aria-label="Profile" onClick={()=>setProfileUser(me)}><Icon name="profile"/></button></div></div><div className="mainWrap"><div className="nav">{TABS.map(t=><button key={t} className={tab===t?"active":""} onClick={()=>goTab(t)}>{t==="chats"?<><Icon name="chat" size={17}/> Chat</>:t==="stories"?<><Icon name="story" size={17}/> Story</>:t==="calls"?<><Icon name="call" size={17}/> Call</>:<><Icon name="profile" size={17}/> People</>}</button>)}<button onClick={()=>goTab("settings")}><Icon name="settings" size={17}/> Settings</button></div>{chatUser?<Chat me={me} other={allUsers.find(u=>u.uid===chatUser.uid)||chatUser} onBack={()=>{setChatUser(null);window.history.back()}}/>:tab==="chats"?<Chats me={me} allUsers={allUsers} openChat={openChat}/>:tab==="stories"?<Stories me={me} allUsers={allUsers} openProfile={u=>setProfileUser(u)}/>:tab==="calls"?<Calls me={me} allUsers={allUsers} openProfile={u=>setProfileUser(u)}/>:tab==="people"?<People me={me} allUsers={allUsers} openChat={openChat} openProfile={u=>setProfileUser(u)}/>:<Settings me={me}/>}</div>{profileUser&&<ProfileModal me={me} user={profileUser} onClose={()=>setProfileUser(null)} openChat={u=>{setProfileUser(null);openChat(u)}}/>}{legal&&<div onClick={()=>setLegal(false)}><Legal/></div>}</div>;
 }
 
 createRoot(document.getElementById("root")).render(
