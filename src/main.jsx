@@ -973,7 +973,7 @@ function App() {
 
   if(loading)return <><Styles/><div className="authPage"><div className="authCard" style={{textAlign:"center"}}>Loading Chatdo...</div></div>;
   if(!fbUser)return <Auth/>;
-  if(!me)return <><Styles/><div className="authPage"><div className="authCard" style={{textAlign:"center"}}>Preparing your profile...</div></div>;
+  if(!me)return <><Styles/><div className="authPage"><div className="authCard" style={{textAlign:"center"}}>Preparing your profile...</div></div></>;
 
   const openChat=u=>{setChatUser(u);setTab("chats")};
   const openProfile=u=>setProfileUser(u);
