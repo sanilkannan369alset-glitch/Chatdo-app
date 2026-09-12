@@ -198,109 +198,32 @@ function AvatarWithOnline({ user, small = false }) {
 function Styles() {
   return <style>{`
     *{box-sizing:border-box}
-    html,body,#root{margin:0;min-height:100%;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f6f0e7;color:#33251e}
-    button,input,textarea{font:inherit}
-    button{cursor:pointer}
-    .app{min-height:100vh;background:#f6f0e7}
-    .topbar{height:68px;background:#fffaf3;border-bottom:1px solid #eadbca;display:flex;align-items:center;justify-content:space-between;padding:0 18px;position:sticky;top:0;z-index:50}
-    .brand{display:flex;align-items:center;gap:10px;font-weight:900;font-size:22px;color:#4b2e20;cursor:pointer}
-    .brandMark{width:40px;height:40px;border-radius:14px;background:#70462f;color:#fffaf3;display:grid;place-items:center;font-weight:900;box-shadow:0 5px 14px #70462f25}
-    .topActions{display:flex;gap:8px;align-items:center}
-    .iconBtn{width:40px;height:40px;border:1px solid #e7d8c7;background:#fffaf3;color:#5c3a29;border-radius:13px;display:grid;place-items:center}
-    .backTop{width:34px;height:34px;border:1px solid #e7d8c7;background:#fffaf3;color:#5c3a29;border-radius:10px;display:grid;place-items:center;font-size:18px}
-    .editIcon{position:absolute;right:7px;bottom:7px;width:22px;height:22px;border:0;background:transparent;color:#4b2e20;display:grid;place-items:center;cursor:pointer;font-size:16px;line-height:1;padding:0;box-shadow:none}
-    .coverEdit{position:absolute;right:9px;top:9px} 
-    .colorWheel{width:34px;height:34px;border-radius:50%;padding:0;border:2px solid #fffaf3;box-shadow:0 0 0 1px #dfcfbd;overflow:hidden;cursor:pointer;display:inline-block;vertical-align:middle}
-    .colorWheel input{width:50px;height:50px;margin:-8px;border:0;padding:0;cursor:pointer;background:transparent}
-    .storyBgPicker{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid #eadbca;background:#fffdf9;border-radius:13px}
-    .storyBgPreview{min-height:180px;border-radius:16px;display:grid;place-items:center;text-align:center;padding:24px;font-weight:900;white-space:pre-wrap;word-break:break-word}
-
-    .mediaChoice{display:flex;gap:8px;flex-wrap:wrap}.mediaChoice label{width:48px;height:48px;border:1px solid #dfcfbd;background:#fffdf9;border-radius:13px;display:grid;place-items:center;font-size:21px;cursor:pointer}.mediaChoice input{display:none}
-    .storyTextOnly{min-height:220px;padding:24px;display:grid;place-items:center;text-align:center;font-weight:900;white-space:pre-wrap;word-break:break-word}
-    .storyAudio{width:100%;padding:25px 14px}
-    .storyCanvas{position:relative}
-    .stickerChoice.active{outline:2px solid #70462f;background:#f2e4d5}
-    .chatError{padding:18px;margin:18px;border-radius:14px;background:#fbe7e2;color:#a43b2e}
-
-    .mainWrap{width:min(1180px,100%);margin:auto;padding:16px}
-    .nav{display:flex;gap:7px;padding:7px;background:#fffaf3;border:1px solid #eadbca;border-radius:18px;margin-bottom:15px;position:sticky;top:78px;z-index:30;overflow:auto}
-    .nav button{flex:1;min-width:90px;border:0;border-radius:12px;padding:11px;background:transparent;color:#8a6b58;font-weight:800}
-    .nav button.active{background:#70462f;color:white}
-    .page{background:#fffaf3;border:1px solid #eadbca;border-radius:22px;min-height:calc(100vh - 160px);overflow:hidden;box-shadow:0 15px 45px #70462f0d}
-    .pageHead{padding:18px;border-bottom:1px solid #f0e4d6;display:flex;justify-content:space-between;align-items:center;gap:12px}
-    .pageTitle{font-size:21px;font-weight:900;color:#4b2e20}
-    .subtle{font-size:13px;color:#9a7a65}
-    .searchBox{display:flex;gap:8px;padding:14px 18px;border-bottom:1px solid #f0e4d6}
-    .input,textarea{width:100%;border:1px solid #dfcfbd;background:#fffdf9;color:#3c2a20;border-radius:13px;padding:11px 13px;outline:0}
-    .input:focus,textarea:focus{border-color:#a47b5d;background:#fff}
-    textarea{resize:vertical;min-height:80px}
-    .primary{border:0;background:#70462f;color:white;padding:10px 14px;border-radius:12px;font-weight:800}
-    .secondary{border:1px solid #dfcfbd;background:#fffdf9;color:#684733;padding:9px 13px;border-radius:12px;font-weight:800}
-    .danger{border:0;background:#fbe7e2;color:#a43b2e;padding:9px 13px;border-radius:12px;font-weight:800}
-    .linkBtn{border:0;background:none;color:#70462f;font-weight:800;padding:0}
-    .empty{text-align:center;padding:48px 20px;color:#aa8d79}
-    .avatar{width:46px;height:46px;flex:0 0 46px;border-radius:50%;overflow:hidden;background:#ead8c5;color:#70462f;display:grid;place-items:center;font-weight:900}
-    .avatar.small{width:38px;height:38px;flex-basis:38px;font-size:13px}
-    .avatar img{width:100%;height:100%;object-fit:cover}
-    .avatarWrap{position:relative;flex:0 0 auto}
-    .onlineDot{position:absolute;right:1px;bottom:2px;width:12px;height:12px;border-radius:50%;border:2px solid #fffaf3;background:#555}
-    .onlineDot.on{background:#39a96b}.onlineDot.off{background:#575757}
-    .chatList{display:flex;flex-direction:column}
-    .chatRow{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #f1e7dc;user-select:none}
-    .chatRow:hover{background:#fff4e8}
-    .chatRowMain{flex:1;min-width:0}.chatRowTop{display:flex;justify-content:space-between;gap:8px}
-    .chatName{font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#4b2e20}
-    .chatPreview{color:#9b7c68;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px}
-    .chatTime{font-size:11px;color:#aa8d79;white-space:nowrap}
-    .pinBadge{margin-left:6px;font-size:12px}
-    .contextMenu{position:fixed;z-index:200;background:#fffaf3;border:1px solid #e5d5c3;border-radius:14px;box-shadow:0 18px 50px #3b251c30;min-width:205px;overflow:hidden}
-    .contextMenu button{width:100%;border:0;background:#fffaf3;padding:13px 15px;text-align:left;font-weight:800;color:#5b3b2a}
-    .contextMenu button:hover{background:#fff0df}.contextMenu .dangerItem{color:#ad3c2e}
-    .chatPage{display:flex;flex-direction:column;height:calc(100vh - 180px);min-height:560px}
-    .chatHeader{display:flex;align-items:center;gap:10px;padding:12px 15px;border-bottom:1px solid #eadbca;background:#fffaf3}
-    .chatHeaderInfo{flex:1;min-width:0}.chatHeaderName{font-weight:900}.chatHeaderStatus{font-size:12px;color:#39a96b}.offlineText{color:#8f7768}
-    .messages{flex:1;overflow-y:auto;padding:18px;background:#f5ede3;background-image:radial-gradient(#c9a98d33 1px,transparent 1px);background-size:24px 24px}
-    .messageLine{display:flex;margin:7px 0}.messageLine.mine{justify-content:flex-end}
-    .bubble{max-width:min(78%,620px);padding:9px 11px;border-radius:16px;background:#fffaf3;border:1px solid #e8d9c8;box-shadow:0 2px 8px #5c3a2910}
-    .mine .bubble{background:#ead9c4;border-color:#dcc4aa}
-    .replyBox{border-left:3px solid #8a5b3e;background:#ffffff75;padding:6px 8px;border-radius:7px;margin-bottom:6px;font-size:12px;color:#72533f}
-    .bubbleText{white-space:pre-wrap;word-break:break-word}.bubbleMeta{display:flex;justify-content:flex-end;gap:5px;margin-top:4px;font-size:10px;color:#987b68}
-    .tick.seen{filter:blur(.6px);opacity:.72}.tick.delivered{font-weight:900}
-    .composer{padding:10px;border-top:1px solid #eadbca;background:#fffaf3;display:flex;gap:7px;align-items:flex-end}
-    .composer textarea{min-height:44px;max-height:120px;resize:none}.sendBtn{width:46px;height:44px;border:0;border-radius:13px;background:#70462f;color:#fff}
-    .replyComposer{padding:7px 10px;background:#f2e4d5;border-top:1px solid #eadbca;font-size:12px;display:flex;justify-content:space-between}
-    .storiesStrip{display:flex;gap:13px;overflow:auto;padding:17px;border-bottom:1px solid #f0e4d6}
-    .storyItem{min-width:70px;text-align:center;font-size:11px;color:#765642}.storyCircle{width:62px;height:62px;border-radius:50%;padding:3px;background:#70462f;margin:auto;position:relative}
-    .storyCircle>div{width:100%;height:100%;border-radius:50%;overflow:hidden;background:#ead8c5;display:grid;place-items:center;font-weight:900;color:#70462f}
-    .storyCircle img{width:100%;height:100%;object-fit:cover}
-    .storyAdd{position:absolute;right:-1px;bottom:-1px;width:21px;height:21px;border-radius:50%;background:#70462f;color:white;border:2px solid #fffaf3;display:grid;place-items:center}
-    .storyGrid{padding:18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:13px}
-    .storyCard{border:1px solid #eadbca;border-radius:16px;overflow:hidden;background:#fff}
-    .storyMedia{height:220px;background:#ead8c5;position:relative;display:grid;place-items:center;overflow:hidden}
-    .storyMedia img,.storyMedia video{width:100%;height:100%;object-fit:cover}
-    .storyOverlayText{position:absolute;left:12px;top:12px;color:white;font-size:22px;font-weight:900;text-shadow:0 2px 8px #000}
-    .storyInfo{padding:10px}.storyActions{display:flex;gap:6px;margin-top:7px}
-    .peopleGrid{display:flex;flex-direction:column}.personRow{display:flex;align-items:center;gap:12px;padding:13px 17px;border-bottom:1px solid #f0e4d6}
-    .personMain{flex:1;min-width:0}.personName{font-weight:900}.personMeta{font-size:12px;color:#9a7a65;margin-top:3px}
-    .poke{border:1px solid #d9c4af;background:#fff3e4;color:#70462f;border-radius:11px;padding:8px 11px;font-weight:900}
-    .profileCard{padding:20px}.cover{height:170px;border-radius:18px;background:linear-gradient(135deg,#b98d6d,#6e452f);overflow:hidden;position:relative}.cover img{width:100%;height:100%;object-fit:cover}
-    .profileBody{margin-top:-42px;padding:0 18px;position:relative}.profileAvatar{border:5px solid #fffaf3;border-radius:50%;width:88px;height:88px}.profileAvatar .avatar{width:100%;height:100%}
-    .profileFields{display:grid;gap:10px;margin-top:16px}.fieldLabel{font-size:12px;color:#92715d;font-weight:800}
-    .settingsList{display:grid}.settingRow{padding:15px 18px;border-bottom:1px solid #f0e4d6;display:flex;justify-content:space-between;gap:12px;align-items:center}
-    .modalBack{position:fixed;inset:0;background:#2e211b66;display:grid;place-items:center;z-index:300;padding:15px}
-    .modal{width:min(620px,100%);max-height:92vh;overflow:auto;background:#fffaf3;border:1px solid #eadbca;border-radius:20px;box-shadow:0 30px 80px #0004;padding:20px}
-    .modalHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}.modalTitle{font-size:20px;font-weight:900}
-    .formGrid{display:grid;gap:11px}.twoCol{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .check{display:flex;gap:8px;align-items:center;font-size:13px;color:#6f5544}
-    .authPage{min-height:100vh;display:grid;place-items:center;padding:20px;background:radial-gradient(circle at top left,#e7d5c3,transparent 42%),#f6f0e7}
-    .authCard{width:min(440px,100%);background:#fffaf3;border:1px solid #eadbca;border-radius:25px;padding:30px;box-shadow:0 25px 70px #70462f18}
-    .authLogo{text-align:center;margin-bottom:22px}.authLogo .brandMark{margin:auto;width:58px;height:58px;font-size:23px}.authLogo h1{margin:12px 0 4px;color:#4b2e20}.authForm{display:grid;gap:11px}.authError{background:#fbe7e2;color:#a43b2e;padding:10px;border-radius:10px;font-size:13px}
-    .callBox{padding:25px;text-align:center}.callAvatar{width:110px;height:110px;margin:20px auto}.callButtons{display:flex;justify-content:center;gap:10px;margin-top:20px}
-    .notice{padding:12px 15px;background:#f7eadc;border-bottom:1px solid #eadbca;color:#6f5140;font-size:13px}
-    .emojiBar{display:flex;gap:5px;flex-wrap:wrap}.emojiBar button{border:1px solid #eadbca;background:#fff;border-radius:9px;padding:6px}
-    @media(max-width:700px){
-      .mainWrap{padding:8px}.topbar{padding:0 10px}.brand{font-size:19px}.nav{top:70px}.page{border-radius:17px}.chatPage{height:calc(100vh - 140px);min-height:500px}.bubble{max-width:88%}.twoCol{grid-template-columns:1fr}.pageHead{padding:14px}.topActions .iconBtn{width:36px;height:36px}
-    }
+    html,body,#root{margin:0;min-height:100%;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#eadbcb;color:#33251e}
+    body{min-height:100vh}
+    button,input,textarea,select{font:inherit}button{cursor:pointer}
+    .app{min-height:100vh;background:#eadbcb}
+    .topbar{height:72px;background:#fffaf4;border-bottom:1px solid #e7d8ca;display:flex;align-items:center;justify-content:space-between;padding:0 16px;position:sticky;top:0;z-index:50;max-width:100%;}
+    .brand{display:flex;align-items:center;gap:9px;font-weight:900;font-size:19px;color:#3f271c;cursor:pointer}.brandMark{width:31px;height:31px;border-radius:9px;background:#75472f;color:#fffaf4;display:grid;place-items:center;font-weight:900;font-size:17px;box-shadow:none}
+    .topActions{display:flex;gap:6px;align-items:center}.iconBtn{width:38px;height:38px;border:0;background:transparent;color:#563426;border-radius:11px;display:grid;place-items:center;font-size:18px;padding:0}.backTop{width:34px;height:34px;border:0;background:transparent;color:#563426;border-radius:10px;display:grid;place-items:center;font-size:23px;padding:0}
+    .editIcon{position:absolute;right:7px;bottom:7px;width:21px;height:21px;border:0;background:transparent;color:#4b2e20;display:grid;place-items:center;cursor:pointer;font-size:15px;line-height:1;padding:0;box-shadow:none}.coverEdit{right:9px;top:9px}
+    .colorWheel{width:35px;height:35px;border-radius:50%;padding:0;border:2px solid #fffaf3;box-shadow:0 0 0 1px #d8c5b2;overflow:hidden;cursor:pointer;display:inline-block;vertical-align:middle}.colorWheel input{width:52px;height:52px;margin:-9px;border:0;padding:0;cursor:pointer;background:transparent}
+    .storyBgPicker{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;border:1px solid #e4d5c6;background:#fffdf9;border-radius:12px}
+    .mediaChoice{display:flex;gap:8px;flex-wrap:wrap}.mediaChoice label{width:48px;height:48px;border:1px solid #decdbb;background:#fffdf9;border-radius:13px;display:grid;place-items:center;font-size:21px;cursor:pointer}.mediaChoice input{display:none}
+    .storyTextOnly{min-height:220px;padding:24px;display:grid;place-items:center;text-align:center;font-weight:900;white-space:pre-wrap;word-break:break-word}.storyAudio{width:100%;padding:25px 14px}.storyCanvas{position:relative}.stickerChoice.active{outline:2px solid #75472f;background:#f2e2d4}.chatError{padding:18px;margin:18px;border-radius:14px;background:#fbe7e2;color:#a43b2e}
+    .mainWrap{width:min(430px,100%);margin:0 auto;padding:0;background:#fffaf4;min-height:calc(100vh - 72px);box-shadow:0 0 35px #6d452f18}
+    .nav{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;padding:8px 10px 9px;background:#fffaf4;border-bottom:1px solid #eadfd5;position:sticky;top:72px;z-index:30;overflow:auto}.nav button{min-width:0;border:0;border-radius:15px;padding:9px 4px;background:transparent;color:#543b2e;font-weight:800;font-size:12px}.nav button.active{background:#75472f;color:#fff}
+    .page{background:#fffaf4;border:0;border-radius:0;min-height:calc(100vh - 128px);overflow:hidden;box-shadow:none}.pageHead{padding:17px 16px 13px;border-bottom:1px solid #eee2d8;display:flex;justify-content:space-between;align-items:center;gap:10px}.pageTitle{font-size:18px;font-weight:900;color:#40291f}.subtle{font-size:12px;color:#947766}
+    .searchBox{display:flex;gap:8px;padding:12px 14px;border-bottom:1px solid #eee2d8}.input,textarea{width:100%;border:1px solid #dfd0c2;background:#fffdf9;color:#3c2a20;border-radius:12px;padding:11px 12px;outline:0}.input:focus,textarea:focus{border-color:#a47b5d;background:#fff}textarea{resize:vertical;min-height:80px}
+    .primary{border:0;background:#75472f;color:white;padding:11px 15px;border-radius:11px;font-weight:800}.secondary{border:1px solid #d9c6b5;background:#fffdf9;color:#684733;padding:10px 13px;border-radius:11px;font-weight:800}.danger{border:0;background:#fae3df;color:#a43b2e;padding:9px 13px;border-radius:11px;font-weight:800}.linkBtn{border:0;background:none;color:#70462f;font-weight:800;padding:0}
+    .empty{text-align:center;padding:48px 20px;color:#aa8d79}.avatar{width:46px;height:46px;flex:0 0 46px;border-radius:50%;overflow:hidden;background:#ead8c5;color:#70462f;display:grid;place-items:center;font-weight:900}.avatar.small{width:38px;height:38px;flex-basis:38px;font-size:13px}.avatar img{width:100%;height:100%;object-fit:cover}.avatarWrap{position:relative;flex:0 0 auto}.onlineDot{position:absolute;right:0;bottom:1px;width:11px;height:11px;border-radius:50%;border:2px solid #fffaf4;background:#777}.onlineDot.on{background:#32a866}.onlineDot.off{background:#777}
+    .chatList{display:flex;flex-direction:column}.chatRow{display:flex;align-items:center;gap:11px;padding:12px 15px;border-bottom:1px solid #f0e6dd;user-select:none}.chatRow:hover{background:#fff5ec}.chatRowMain{flex:1;min-width:0}.chatRowTop{display:flex;justify-content:space-between;gap:8px}.chatName{font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#3f2b21}.chatPreview{color:#927564;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:3px}.chatTime{font-size:10px;color:#a28777;white-space:nowrap}.pinBadge{margin-left:6px;font-size:11px}
+    .contextMenu{position:fixed;z-index:200;background:#fffaf4;border:1px solid #e5d5c3;border-radius:14px;box-shadow:0 18px 50px #3b251c30;min-width:205px;overflow:hidden}.contextMenu button{width:100%;border:0;background:#fffaf4;padding:13px 15px;text-align:left;font-weight:800;color:#5b3b2a}.contextMenu button:hover{background:#fff0df}.contextMenu .dangerItem{color:#ad3c2e}
+    .chatPage{display:flex;flex-direction:column;height:calc(100vh - 128px);min-height:560px}.chatHeader{display:flex;align-items:center;gap:9px;padding:10px 12px;border-bottom:1px solid #eadbca;background:#fffaf4}.chatHeaderInfo{flex:1;min-width:0}.chatHeaderName{font-weight:900}.chatHeaderStatus{font-size:11px;color:#35a866}.offlineText{color:#8f7768}.messages{flex:1;overflow-y:auto;padding:14px;background:#f5eee6;background-image:radial-gradient(#c9a98d30 1px,transparent 1px);background-size:22px 22px}.messageLine{display:flex;margin:6px 0}.messageLine.mine{justify-content:flex-end}.bubble{max-width:78%;padding:8px 10px;border-radius:15px;background:#fffaf4;border:1px solid #e8d9c8;box-shadow:0 2px 7px #5c3a2910}.mine .bubble{background:#8b5238;color:#fff;border-color:#8b5238}.replyBox{border-left:3px solid #8a5b3e;background:#ffffff45;padding:5px 7px;border-radius:7px;margin-bottom:6px;font-size:11px}.bubbleText{white-space:pre-wrap;word-break:break-word}.bubbleMeta{display:flex;justify-content:flex-end;gap:5px;margin-top:4px;font-size:9px;opacity:.72}.composer{padding:8px;border-top:1px solid #eadbca;background:#fffaf4;display:flex;gap:5px;align-items:flex-end}.composer textarea{min-height:42px;max-height:110px;resize:none;padding:10px}.sendBtn{width:43px;height:42px;border:0;border-radius:12px;background:#75472f;color:#fff}.replyComposer{padding:7px 10px;background:#f2e4d5;border-top:1px solid #eadbca;font-size:11px;display:flex;justify-content:space-between}
+    .storiesStrip{display:flex;gap:13px;overflow:auto;padding:15px;border-bottom:1px solid #f0e4d6}.storyItem{min-width:64px;text-align:center;font-size:10px;color:#765642}.storyCircle{width:58px;height:58px;border-radius:50%;padding:3px;background:#75472f;margin:auto;position:relative}.storyCircle>div{width:100%;height:100%;border-radius:50%;overflow:hidden;background:#ead8c5;display:grid;place-items:center;font-weight:900;color:#70462f}.storyCircle img{width:100%;height:100%;object-fit:cover}.storyAdd{position:absolute;right:-2px;bottom:-2px;width:20px;height:20px;border-radius:50%;background:#75472f;color:white;border:2px solid #fffaf4;display:grid;place-items:center}.storyGrid{padding:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.storyCard{border:1px solid #eadbca;border-radius:14px;overflow:hidden;background:#fff}.storyMedia{height:190px;background:#ead8c5;position:relative;display:grid;place-items:center;overflow:hidden}.storyMedia img,.storyMedia video{width:100%;height:100%;object-fit:cover}.storyOverlayText{position:absolute;left:12px;top:12px;color:white;font-size:21px;font-weight:900;text-shadow:0 2px 8px #000}.storyInfo{padding:9px}.storyActions{display:flex;gap:5px;margin-top:6px}.peopleGrid{display:flex;flex-direction:column}.personRow{display:flex;align-items:center;gap:11px;padding:12px 15px;border-bottom:1px solid #f0e4d6}.personMain{flex:1;min-width:0}.personName{font-weight:900}.personMeta{font-size:11px;color:#9a7a65;margin-top:3px}.poke{border:1px solid #d9c4af;background:#fff3e4;color:#70462f;border-radius:10px;padding:8px 10px;font-weight:900}
+    .profileCard{padding:15px}.cover{height:155px;border-radius:16px;background:linear-gradient(135deg,#b98d6d,#6e452f);overflow:hidden;position:relative}.cover img{width:100%;height:100%;object-fit:cover}.profileBody{margin-top:-42px;padding:0 16px;position:relative}.profileAvatar{border:5px solid #fffaf4;border-radius:50%;width:88px;height:88px}.profileAvatar .avatar{width:100%;height:100%}.profileFields{display:grid;gap:10px;margin-top:14px}.fieldLabel{font-size:11px;color:#92715d;font-weight:800}.settingsList{display:grid}.settingRow{padding:14px 16px;border-bottom:1px solid #f0e4d6;display:flex;justify-content:space-between;gap:12px;align-items:center}
+    .authPage{min-height:100vh;background:#eadbcb;display:flex;justify-content:center;align-items:center;padding:16px}.authCard{width:min(390px,100%);background:#fffaf4;border-radius:19px;padding:28px 16px 22px;box-shadow:0 14px 40px #5c3a2918;border:1px solid #eadbca}.authLogo{text-align:center}.authLogo .brandMark{width:64px;height:64px;border-radius:17px;margin:0 auto 10px;font-size:29px}.authLogo h1{margin:0;color:#4b2e20;font-size:25px}.authForm{display:grid;gap:9px;margin-top:24px}.authForm .input{height:44px}.authForm .primary,.authForm .secondary{height:44px}.authError{background:#fae3df;color:#a43b2e;padding:10px;border-radius:11px;font-size:12px}.formGrid{display:grid;gap:11px;padding:15px}.twoCol{display:grid;grid-template-columns:1fr 1fr;gap:8px}.emojiBar{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.emojiBar button{border:1px solid #eadbca;background:#fffaf4;border-radius:10px;padding:7px 9px}.notice{padding:10px;border-radius:11px;background:#f4e8dc;color:#856854;font-size:11px}.modalBack{position:fixed;inset:0;background:#2e201b77;z-index:300;display:flex;align-items:center;justify-content:center;padding:14px}.modal{width:min(410px,100%);max-height:92vh;overflow:auto;background:#fffaf4;border-radius:18px;box-shadow:0 20px 60px #0004}.modalHead{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #eadbca}.modalTitle{font-weight:900;color:#4b2e20}
+    @media(max-width:430px){.app{background:#fffaf4}.mainWrap{width:100%;box-shadow:none}.topbar{height:66px}.nav{top:66px}.chatPage{height:calc(100vh - 122px)}}
+    @media(min-width:700px){.app{padding:18px 0}.topbar{width:430px;margin:0 auto;border:1px solid #eadbca;border-bottom:0;border-radius:20px 20px 0 0}.mainWrap{border:1px solid #eadbca;border-top:0;border-radius:0 0 20px 20px;overflow:hidden}}
   `}</style>;
 }
 
@@ -309,121 +232,13 @@ function Styles() {
 ========================================================= */
 
 function Auth() {
-  const [mode, setMode] = useState("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
-  const [confirm, setConfirm] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-
-  const submit = async e => {
-    e.preventDefault();
-    setErr("");
-    setBusy(true);
-    try {
-      if (mode === "forgot") {
-        await sendPasswordResetEmail(auth, email.trim().toLowerCase());
-        alert("Password reset email sent.");
-        setMode("login");
-      } else if (mode === "signup") {
-        if (password.length < 8) throw new Error("Password must contain at least 8 characters.");
-        const cred = await createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
-        await updateProfile(cred.user, { displayName: name.trim() });
-        await ensureUser(cred.user, { displayName: name.trim(), phoneNumber: phoneOnly(phone) });
-      } else {
-        await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
-      }
-    } catch (e2) {
-      setErr(e2?.message || "Could not continue.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const google = async () => {
-    setErr(""); setBusy(true);
-    try {
-      const cred = await signInWithPopup(auth, googleProvider);
-      await ensureUser(cred.user);
-    } catch (e) { setErr(e?.message || "Google sign-in failed."); }
-    finally { setBusy(false); }
-  };
-
-  const startPhone = async () => {
-    setErr(""); setBusy(true);
-    try {
-      if (!window.recaptchaVerifier) {
-        window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
-      }
-      const result = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifier);
-      setConfirm(result);
-      alert("OTP sent to your mobile.");
-    } catch (e) { setErr(e?.message || "OTP could not be sent."); }
-    finally { setBusy(false); }
-  };
-
-  const verifyOtp = async () => {
-    setErr(""); setBusy(true);
-    try {
-      const cred = await confirm.confirm(otp);
-      await ensureUser(cred.user);
-      setConfirm(null);
-    } catch (e) { setErr(e?.message || "Invalid OTP."); }
-    finally { setBusy(false); }
-  };
-
-  return (
-    <div className="authPage">
-      <Styles />
-      <div className="authCard">
-        <div className="authLogo">
-          <div className="brandMark">C</div>
-          <h1>Chatdo</h1>
-          <div className="subtle">Simple. Private. Connected.</div>
-        </div>
-
-        <div className="authForm">
-          {err && <div className="authError">{err}</div>}
-
-          {mode === "forgot" ? (
-            <>
-              <input className="input" placeholder="Email ID" value={email} onChange={e => setEmail(e.target.value)} />
-              <button className="primary" onClick={submit} disabled={busy}>Send reset email</button>
-              <button className="linkBtn" onClick={() => setMode("login")}>Back to login</button>
-            </>
-          ) : (
-            <>
-              {mode === "signup" && <input className="input" placeholder="Name" value={name} onChange={e => setName(e.target.value)} />}
-              <input className="input" placeholder="Email ID" type="email" value={email} onChange={e => setEmail(e.target.value)} />
-              <input className="input" placeholder="Strong password (8+ characters)" type="password" value={password} onChange={e => setPassword(e.target.value)} />
-              <button className="primary" onClick={submit} disabled={busy}>{mode === "signup" ? "Create account" : "Login"}</button>
-              <div style={{textAlign:"center",color:"#9a7a65",fontSize:12,marginTop:2}}>OR continue with mobile OTP</div>
-              <input className="input" placeholder="+91XXXXXXXXXX" value={phone} onChange={e => setPhone(e.target.value)} />
-              {!confirm ? (
-                <button className="secondary" onClick={startPhone} disabled={busy}>Send mobile OTP</button>
-              ) : (
-                <>
-                  <input className="input" placeholder="Enter OTP" value={otp} onChange={e => setOtp(e.target.value)} />
-                  <button className="primary" onClick={verifyOtp} disabled={busy}>Verify OTP</button>
-                </>
-              )}
-
-              <div id="recaptcha-container" />
-              <div style={{textAlign:"center",marginTop:6}}>
-                <button className="linkBtn" onClick={() => setMode(mode === "login" ? "signup" : "login")}>
-                  {mode === "login" ? "Create a new account" : "Already have an account? Login"}
-                </button>
-              </div>
-              {mode === "login" && <div style={{textAlign:"center",marginTop:8}}><button className="linkBtn" onClick={() => setMode("forgot")}>Forgot password?</button></div>}
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  const [mode,setMode]=useState("login"),[email,setEmail]=useState(""),[password,setPassword]=useState(""),[confirmPassword,setConfirmPassword]=useState(""),[name,setName]=useState(""),[phone,setPhone]=useState(""),[otp,setOtp]=useState(""),[confirm,setConfirm]=useState(null),[busy,setBusy]=useState(false),[err,setErr]=useState(""),[otpMode,setOtpMode]=useState(false);
+  const submit=async e=>{e.preventDefault();setErr("");setBusy(true);try{if(mode==="forgot"){await sendPasswordResetEmail(auth,email.trim().toLowerCase());alert("Password reset email sent.");setMode("login");}else if(mode==="signup"){if(password.length<8)throw new Error("Password must contain at least 8 characters.");if(password!==confirmPassword)throw new Error("Passwords do not match.");const cred=await createUserWithEmailAndPassword(auth,email.trim().toLowerCase(),password);await updateProfile(cred.user,{displayName:name.trim()});await ensureUser(cred.user,{displayName:name.trim()});}else{await signInWithEmailAndPassword(auth,email.trim().toLowerCase(),password);}}catch(e2){setErr(e2?.message||"Could not continue.")}finally{setBusy(false)}};
+  const startPhone=async()=>{setErr("");setBusy(true);try{if(!window.recaptchaVerifier)window.recaptchaVerifier=new RecaptchaVerifier(auth,"recaptcha-container",{size:"invisible"});const result=await signInWithPhoneNumber(auth,phone,window.recaptchaVerifier);setConfirm(result);alert("OTP sent to your mobile.")}catch(e){setErr(e?.message||"OTP could not be sent.")}finally{setBusy(false)}};
+  const verifyOtp=async()=>{setErr("");setBusy(true);try{const cred=await confirm.confirm(otp);await ensureUser(cred.user);setConfirm(null)}catch(e){setErr(e?.message||"Invalid OTP.")}finally{setBusy(false)}};
+  if(mode==="forgot")return <div className="authPage"><Styles/><div className="authCard"><div className="authLogo"><div className="brandMark">C</div><h1>Chatdo</h1><div className="subtle">Reset your password</div></div><div className="authForm"><input className="input" placeholder="✉  Email address" value={email} onChange={e=>setEmail(e.target.value)}/><button className="primary" onClick={submit}>Send reset email</button><button className="linkBtn" onClick={()=>setMode("login")}>Back to login</button></div></div></div>;
+  if(otpMode)return <div className="authPage"><Styles/><div className="authCard"><button className="backTop" onClick={()=>setOtpMode(false)}>←</button><div className="authLogo"><div className="brandMark">C</div><h1>Chatdo</h1><div className="subtle">Verify your number</div></div><div className="authForm">{err&&<div className="authError">{err}</div>}{!confirm?<><input className="input" placeholder="☎  +91 98765 43210" value={phone} onChange={e=>setPhone(e.target.value)}/><button className="primary" onClick={startPhone} disabled={busy}>Send OTP</button></>:<><div className="subtle" style={{textAlign:"center"}}>Enter the 6-digit code sent to<br/><b>{phone}</b></div><input className="input" placeholder="1  2  3  4  5  6" value={otp} onChange={e=>setOtp(e.target.value)}/><button className="primary" onClick={verifyOtp} disabled={busy}>Verify</button><div className="subtle" style={{textAlign:"center"}}>Didn't receive the code? <button className="linkBtn" onClick={startPhone}>Resend</button></div></>}<div id="recaptcha-container"/></div></div></div>;
+  return <div className="authPage"><Styles/><div className="authCard"><div className="authLogo"><div className="brandMark">C</div><h1>Chatdo</h1><div className="subtle">{mode==="signup"?"Create your account":"Connect. Chat. Share."}</div></div><form className="authForm" onSubmit={submit}>{err&&<div className="authError">{err}</div>}{mode==="signup"&&<input className="input" placeholder="👤  Name" value={name} onChange={e=>setName(e.target.value)} required/>}<input className="input" placeholder="✉  Email address" type="email" value={email} onChange={e=>setEmail(e.target.value)} required/><input className="input" placeholder="🔒  Password" type="password" value={password} onChange={e=>setPassword(e.target.value)} required/>{mode==="signup"&&<input className="input" placeholder="🔒  Confirm password" type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} required/>}{mode==="login"&&<div style={{textAlign:"right"}}><button type="button" className="linkBtn" onClick={()=>setMode("forgot")}>Forgot password?</button></div>}<button className="primary" type="submit" disabled={busy}>{mode==="signup"?"Sign Up":"Login"}</button><div style={{display:"flex",alignItems:"center",gap:8,color:"#aa8d79",fontSize:12,margin:"1px 0"}}><span style={{height:1,background:"#eadbca",flex:1}}/>OR<span style={{height:1,background:"#eadbca",flex:1}}/></div><button type="button" className="secondary" onClick={()=>setOtpMode(true)}>☎ &nbsp; Continue with Mobile OTP</button><div style={{textAlign:"center",marginTop:13,fontSize:12,color:"#806656"}}>{mode==="login"?<>Don't have an account? <button type="button" className="linkBtn" onClick={()=>setMode("signup")}>Sign up</button></>:<>Already have an account? <button type="button" className="linkBtn" onClick={()=>setMode("login")}>Login</button></>}</div></form></div></div>;
 }
 
 /* =========================================================
@@ -802,7 +617,7 @@ function App() {
   if(loading)return <><Styles/><div className="authPage"><div className="authCard" style={{textAlign:"center"}}>Loading Chatdo...</div></div></>;
   if(!fbUser)return <Auth/>;
   if(!me)return <><Styles/><div className="authPage"><div className="authCard" style={{textAlign:"center"}}>Preparing your profile...</div></div></>;
-  return <div className="app" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}><Styles/><div className="topbar"><div className="brand"><button className="backTop" onClick={back} title="Back">←</button><div className="brandMark">C</div><span onClick={()=>setLegal(true)}>Chatdo</span></div><div className="topActions"><button className="iconBtn" onClick={()=>setProfileUser(me)}>👤</button></div></div><div className="mainWrap"><div className="nav">{TABS.map(t=><button key={t} className={tab===t?"active":""} onClick={()=>goTab(t)}>{t==="chats"?"💬 Chat":t==="stories"?"⭕ Story":t==="calls"?"☎ Call":"👥 People"}</button>)}<button onClick={()=>goTab("settings")}>⚙ Settings</button></div>{chatUser?<Chat me={me} other={allUsers.find(u=>u.uid===chatUser.uid)||chatUser} onBack={()=>{setChatUser(null);window.history.back()}}/>:tab==="chats"?<Chats me={me} allUsers={allUsers} openChat={openChat}/>:tab==="stories"?<Stories me={me} allUsers={allUsers} openProfile={u=>setProfileUser(u)}/>:tab==="calls"?<Calls me={me} allUsers={allUsers} openProfile={u=>setProfileUser(u)}/>:tab==="people"?<People me={me} allUsers={allUsers} openChat={openChat} openProfile={u=>setProfileUser(u)}/>:<Settings me={me}/>}</div>{profileUser&&<ProfileModal me={me} user={profileUser} onClose={()=>setProfileUser(null)} openChat={u=>{setProfileUser(null);openChat(u)}}/>}{legal&&<div onClick={()=>setLegal(false)}><Legal/></div>}</div>;
+  return <div className="app" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}><Styles/><div className="topbar"><div className="brand"><button className="backTop" onClick={back} title="Back">←</button><div className="brandMark">C</div><span onClick={()=>setLegal(true)}>Chatdo</span></div><div className="topActions"><button className="iconBtn" onClick={()=>setProfileUser(me)}>⌕</button><button className="iconBtn" onClick={()=>setProfileUser(me)}>☰</button></div></div><div className="mainWrap"><div className="nav">{TABS.map(t=><button key={t} className={tab===t?"active":""} onClick={()=>goTab(t)}>{t==="chats"?"Chat":t==="stories"?"Story":t==="calls"?"Call":"People"}</button>)}</div>{chatUser?<Chat me={me} other={allUsers.find(u=>u.uid===chatUser.uid)||chatUser} onBack={()=>{setChatUser(null);window.history.back()}}/>:tab==="chats"?<Chats me={me} allUsers={allUsers} openChat={openChat}/>:tab==="stories"?<Stories me={me} allUsers={allUsers} openProfile={u=>setProfileUser(u)}/>:tab==="calls"?<Calls me={me} allUsers={allUsers} openProfile={u=>setProfileUser(u)}/>:tab==="people"?<People me={me} allUsers={allUsers} openChat={openChat} openProfile={u=>setProfileUser(u)}/>:<Settings me={me}/>}</div>{profileUser&&<ProfileModal me={me} user={profileUser} onClose={()=>setProfileUser(null)} openChat={u=>{setProfileUser(null);openChat(u)}}/>}{legal&&<div onClick={()=>setLegal(false)}><Legal/></div>}</div>;
 }
 
 createRoot(document.getElementById("root")).render(
